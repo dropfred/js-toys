@@ -4,7 +4,7 @@ Javascript fun toys.
 
 ## nbody
 
-Mesmerizing N-body toy simulation. Press z to restart, r to change the rendering mode, and c to clear the screen while keeping the current state. Depending of your computer, you may need to reduce the number of bodies.
+Mesmerizing N-body toy simulation. Press z to restart with a new random set, r to change the rendering mode, and c to clear the screen while keeping the current set. Depending of your computer, you may need to reduce the number of bodies.
 
 ## gravity
 
