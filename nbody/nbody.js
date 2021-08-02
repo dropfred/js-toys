@@ -1,7 +1,7 @@
 window.addEventListener('load', () => {
     const NBODIES = 1000;
     const G = 10000000;
-    const AMAX = 500;
+    const AMAX = 1000;
     const VMAX = 230;
     const NTYPES = 5;
     const RADIUS = 5;
