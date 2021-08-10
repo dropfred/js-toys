@@ -3,11 +3,10 @@ window.addEventListener('load', () => {
     const G = 10000000;
     const AMAX = 1000;
     const VMAX = 230;
-    const NTYPES = 5;
+    const NTYPES = 3;
     const RADIUS = 5;
     const DAMPING = 0.99;
     const DISTANCE = 5;
-    const SYMETRIC = false;
     
     const canvas = document.createElement('canvas');
     canvas.style.padding = 0;
@@ -78,7 +77,20 @@ window.addEventListener('load', () => {
     const irand = function () {
         return Math.trunc(rand.apply(rand, arguments))
     };
-    
+
+    const kick = (() => {
+        const s = NBODIES - 1;
+        const rs = new Float32Array(s);
+        let r = -1;
+        for (let i = 0; i < s; ++i) {
+            rs[i] = rand(-0.1, 0.1);
+        }
+        return (() => {
+            if (++r === s) r = 0;
+            return rs[r];
+        });
+    })();
+
     const hsv_to_rgb = (h, s, v) => {
         const h_i = Math.floor(h * 6);
         const f = h * 6 - h_i;
@@ -122,30 +134,28 @@ window.addEventListener('load', () => {
     const setup = () => {
         types = [];
         bodies = [];
-        forces = new Float32Array(NTYPES * NTYPES)
+        forces = new Float32Array(NTYPES * NTYPES);
         
         for (let i = 0; i < NTYPES; ++i) {
             types.push({
                 color  : hex_color(palette()),
-                mass   : /*rand(0.5, 2.0)*/1,
+                // mass   : rand(0.5, 2.0),
+                mass   : 1,
                 radius : RADIUS
             });
         }
-        let f = () => rand(-1, 1);
-        if (SYMETRIC) {
-            for (let i = 0; i < NTYPES; ++i) {
-                for (let j = i; j < NTYPES; ++j) {
-                    forces[(i * NTYPES) + j] = forces[(j * NTYPES + i)] = f();
-                }
-            }
-        } else {
-            for (let i = 0; i < NTYPES; ++i) {
-                for (let j = 0; j < NTYPES; ++j) {
-                    forces[(i * NTYPES) + j] = f();
-                }
+
+        for (let i = 0; i < NTYPES; ++i) {
+            for (let j = 0; j < NTYPES; ++j) {
+                forces[(i * NTYPES) + j] = (i < j) ? rand(-0.9, -0.2)
+                                         : (i > j) ? rand( 0.1,  0.8)
+                                         :           rand(-0.8,  0.2);
             }
         }
         
+        // console.log('types', JSON.stringify(types));
+        // console.log('forces', JSON.stringify(Array.from(forces)));
+
         let body = (ps) => {
             ps = opt(ps, {});
             const pp = opt(ps.position, {});
@@ -215,20 +225,13 @@ window.addEventListener('load', () => {
                 else if (dp.y < -s.hheight) {dp.y = dp.y + s.height;}
                 const d2 = (dp.x * dp.x) + (dp.y * dp.y);
                 const d3 = d2 * Math.sqrt(d2);
-                if (SYMETRIC) {
-                    const f = G * ((d2 < r2) ? -1 : forces[(bi.type * NTYPES) + bj.type]) / d3;
-                    bi.acceleration.x += dp.x * f;
-                    bi.acceleration.y += dp.y * f;
-                    bj.acceleration.x -= dp.x * f;
-                    bj.acceleration.y -= dp.y * f;
-                } else {
-                    const fi = G * ((d2 < r2) ? -1 : forces[(bi.type * NTYPES) + bj.type]) / d3;
-                    bi.acceleration.x += dp.x * fi;
-                    bi.acceleration.y += dp.y * fi;
-                    const fj = G * ((d2 < r2) ? -1 : forces[(bj.type * NTYPES) + bi.type]) / d3;
-                    bj.acceleration.x -= dp.x * fj;
-                    bj.acceleration.y -= dp.y * fj;
-                }
+
+                const fi = G * ((d2 < r2) ? -1 : forces[(bi.type * NTYPES) + bj.type] + kick()) / d3;
+                bi.acceleration.x += dp.x * fi;
+                bi.acceleration.y += dp.y * fi;
+                const fj = G * ((d2 < r2) ? -1 : forces[(bj.type * NTYPES) + bi.type] + kick()) / d3;
+                bj.acceleration.x -= dp.x * fj;
+                bj.acceleration.y -= dp.y * fj;
             }
         }
         
