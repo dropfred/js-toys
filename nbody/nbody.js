@@ -149,7 +149,7 @@ window.addEventListener('load', () => {
             for (let j = 0; j < NTYPES; ++j) {
                 forces[(i * NTYPES) + j] = (i < j) ? rand(-0.9, -0.2)
                                          : (i > j) ? rand( 0.1,  0.8)
-                                         :           rand(-0.8,  0.2);
+                                         :           rand(-0.8,  0.4);
             }
         }
         
