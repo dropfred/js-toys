@@ -1,13 +1,15 @@
 window.addEventListener('load', () => {
-    const NBODIES = 1000;
-    const G = 10000000;
-    const AMAX = 1000;
-    const VMAX = 230;
-    const NTYPES = 3;
-    const RADIUS = 5;
-    const DAMPING = 0.99;
-    const DISTANCE = 5;
-    
+    const settings = {
+        bodies : 1000,
+        species: 3,
+        distance : 10,
+        radius : 5,
+        amax : 1000,
+        vmax : 230,
+        G : 10000000,
+        damping : 0.99
+    };
+
     const canvas = document.createElement('canvas');
     canvas.style.padding = 0;
     const ctx = canvas.getContext('2d');
@@ -30,6 +32,34 @@ window.addEventListener('load', () => {
     
     let current_render = 1;
     
+    const ui = document.createElement('dialog');
+    ui.innerHTML =`<form method="dialog">
+        <p><label>Bodies <input type="range" id="ui_bodies" value="${settings.bodies}" min="50" max="2000" step="50"><output aria-live="polite" id="ui_bodies_txt" ></output></label></p>
+        <p><label>Species <input type="range" id="ui_species" value="${settings.species}" min="1" max="10" step="1"><output aria-live="polite" id="ui_species_txt" ></output></label></p>
+        <p><label>Distance <input type="range" id="ui_distance" value="${settings.distance}" min="0" max="50" step="1"><output aria-live="polite" id="ui_distance_txt" ></output></label></p>
+        <menu><button value="cancel">Cancel</button><button id="confirmBtn" value="ok">OK</button></menu>
+        </form>`;
+    document.body.appendChild(ui);
+    const update_ui = () => {
+        ui_bodies_txt.value = ui_bodies.value.toString();
+        ui_species_txt.value = ui_species.value.toString();
+        ui_distance_txt.value = ui_distance.value.toString();
+
+        settings.distance = parseInt(ui_distance.value);
+    };
+    ui.addEventListener('input', () => {
+        update_ui();
+    });
+    ui.addEventListener('close', () => {
+        if (ui.returnValue === 'ok') {
+            settings.bodies = parseInt(ui_bodies.value);
+            settings.species = parseInt(ui_species.value);
+            settings.distance = parseInt(ui_distance.value);
+            clear();
+            setup();
+        }
+    });
+
     document.onkeydown = (e) => {
         if (!e.repeat) {
             if (e.key === 'r') {
@@ -40,6 +70,9 @@ window.addEventListener('load', () => {
                 setup();
             } else if (e.key === 'c') {
                 clear();
+            } else if (e.key === 's') {
+                update_ui();
+                ui.showModal();
             }
         }
     };
@@ -79,7 +112,7 @@ window.addEventListener('load', () => {
     };
 
     const kick = (() => {
-        const s = NBODIES - 1;
+        const s = settings.bodies - 1;
         const rs = new Float32Array(s);
         let r = -1;
         for (let i = 0; i < s; ++i) {
@@ -134,20 +167,20 @@ window.addEventListener('load', () => {
     const setup = () => {
         types = [];
         bodies = [];
-        forces = new Float32Array(NTYPES * NTYPES);
+        forces = new Float32Array(settings.species * settings.species);
         
-        for (let i = 0; i < NTYPES; ++i) {
+        for (let i = 0; i < settings.species; ++i) {
             types.push({
                 color  : hex_color(palette()),
                 // mass   : rand(0.5, 2.0),
                 mass   : 1,
-                radius : RADIUS
+                radius : settings.radius
             });
         }
 
-        for (let i = 0; i < NTYPES; ++i) {
-            for (let j = 0; j < NTYPES; ++j) {
-                forces[(i * NTYPES) + j] = (i < j) ? rand(-0.9, -0.2)
+        for (let i = 0; i < settings.species; ++i) {
+            for (let j = 0; j < settings.species; ++j) {
+                forces[(i * settings.species) + j] = (i < j) ? rand(-0.9, -0.2)
                                          : (i > j) ? rand( 0.1,  0.8)
                                          :           rand(-0.8,  0.4);
             }
@@ -161,15 +194,15 @@ window.addEventListener('load', () => {
             const pp = opt(ps.position, {});
             const pv = opt(ps.velocity, {});
             return {
-                type         : opt(ps.type, irand(0, NTYPES)),
+                type         : opt(ps.type, irand(0, settings.species)),
                 position     : {x : opt(pp.x, 0), y : opt(pp.y, 0)},
                 velocity     : {x : opt(pv.x, 0), y : opt(pv.y, 0)},
                 acceleration : {x : 0           , y : 0           }
             };
         };
         
-        for (let i = 0; i < NBODIES; ++i) {
-            const v = rand(VMAX);
+        for (let i = 0; i < settings.bodies; ++i) {
+            const v = rand(settings.vmax);
             const d = rand(2 * Math.PI);
             const s = size();
             bodies.push(body({
@@ -182,7 +215,7 @@ window.addEventListener('load', () => {
     let time = 0;
     
     const step = () => {
-        const r2 = (RADIUS * RADIUS) * DISTANCE;
+        const r2 = (settings.radius * settings.radius) * settings.distance;
         const s = size();
         
         let dt, dt2;
@@ -226,10 +259,10 @@ window.addEventListener('load', () => {
                 const d2 = (dp.x * dp.x) + (dp.y * dp.y);
                 const d3 = d2 * Math.sqrt(d2);
 
-                const fi = G * ((d2 < r2) ? -1 : forces[(bi.type * NTYPES) + bj.type] + kick()) / d3;
+                const fi = settings.G * ((d2 < r2) ? -1 : forces[(bi.type * settings.species) + bj.type] + kick()) / d3;
                 bi.acceleration.x += dp.x * fi;
                 bi.acceleration.y += dp.y * fi;
-                const fj = G * ((d2 < r2) ? -1 : forces[(bj.type * NTYPES) + bi.type] + kick()) / d3;
+                const fj = settings.G * ((d2 < r2) ? -1 : forces[(bj.type * settings.species) + bi.type] + kick()) / d3;
                 bj.acceleration.x -= dp.x * fj;
                 bj.acceleration.y -= dp.y * fj;
             }
@@ -238,20 +271,20 @@ window.addEventListener('load', () => {
         for (let i = bodies.length - 1; i >= 0; --i) {
             const b = bodies[i];
             const na = norm(b.acceleration);
-            if (na > AMAX) {
-                b.acceleration.x *= AMAX / na;
-                b.acceleration.y *= AMAX / na;
+            if (na > settings.amax) {
+                b.acceleration.x *= settings.amax / na;
+                b.acceleration.y *= settings.amax / na;
             }
             b.position.x += (b.velocity.x * dt) + (b.acceleration.x * dt2 * 0.5);
             b.position.y += (b.velocity.y * dt) + (b.acceleration.y * dt2 * 0.5);
-            b.velocity.x *= DAMPING;
-            b.velocity.y *= DAMPING;
+            b.velocity.x *= settings.damping;
+            b.velocity.y *= settings.damping;
             b.velocity.x += b.acceleration.x * dt;
             b.velocity.y += b.acceleration.y * dt;
             const v = norm(b.velocity);
-            if (v > VMAX) {
-                b.velocity.x *= VMAX / v;
-                b.velocity.y *= VMAX / v;
+            if (v > settings.vmax) {
+                b.velocity.x *= settings.vmax / v;
+                b.velocity.y *= settings.vmax / v;
             }
             // wrap
             if      (b.position.x < -s.hwidth ) b.position.x += s.width;
