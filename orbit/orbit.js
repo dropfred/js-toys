@@ -502,7 +502,7 @@ window.addEventListener('load', () => {
 
         gl.enable(gl.BLEND);
         gl.blendEquation(gl.FUNC_ADD);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         {
             const cx = bodies[settings.pov].x;
             const cy = bodies[settings.pov].y;
