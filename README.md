@@ -20,6 +20,8 @@ Interactions between species are random, and some sets are more fun than others.
 
 Solar system orbits from planets point of view. Originally written using canvas 2d rendering, but end up using WebGL since I couldn't figure out how to trace nice long trails otherwise.
 
+_Disclaimer: This is just a toy, not a realistic simulation. In particular, orbits are assumed circular, and all in the same plane. Also, sizes and distances are obvously not to scale, although relative sizes and distances of planets are approximately realistic (but not the ratio distance / size)._
+
 ## ez-pw
 
 Easy password generator bookmarklet.
