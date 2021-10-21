@@ -188,6 +188,7 @@ window.addEventListener('load', () => {
             } else if (e.key === 'Escape') {
                 const ui = document.getElementById('ui');
                 ui.style.display = (ui.style.display === 'none') ? 'flex' : 'none';
+                resize();
             }
         }
     };
