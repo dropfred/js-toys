@@ -1,17 +1,17 @@
 window.addEventListener('load', () => {
     const settings = {
-        bodies : 1000,
+        bodies : 500,
         species: 3,
         distance : 10,
         radius : 5,
+        background : 'black',
         amax : 1000,
         vmax : 230,
         G : 10000000,
         damping : 0.99
     };
 
-    const canvas = document.createElement('canvas');
-    canvas.style.padding = 0;
+    const canvas = document.getElementById('render');
     const ctx = canvas.getContext('2d');
     
     const canvas2 = document.createElement('canvas');
@@ -24,41 +24,156 @@ window.addEventListener('load', () => {
     
     window.addEventListener('resize', resize);
     
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    
-    document.body.appendChild(canvas);
     resize();
     
     let current_render = 1;
     
-    const ui = document.createElement('dialog');
-    ui.innerHTML =`<form method="dialog">
-        <p><label>Bodies <input type="range" id="ui_bodies" value="${settings.bodies}" min="50" max="2000" step="50"><output aria-live="polite" id="ui_bodies_txt" ></output></label></p>
-        <p><label>Species <input type="range" id="ui_species" value="${settings.species}" min="1" max="10" step="1"><output aria-live="polite" id="ui_species_txt" ></output></label></p>
-        <p><label>Distance <input type="range" id="ui_distance" value="${settings.distance}" min="0" max="50" step="1"><output aria-live="polite" id="ui_distance_txt" ></output></label></p>
-        <menu><button value="cancel">Cancel</button><button id="confirmBtn" value="ok">OK</button></menu>
-        </form>`;
-    document.body.appendChild(ui);
-    const update_ui = () => {
-        ui_bodies_txt.value = ui_bodies.value.toString();
-        ui_species_txt.value = ui_species.value.toString();
-        ui_distance_txt.value = ui_distance.value.toString();
+    //
+    // build ui
+    //
+    {
+        const ui = document.getElementById('ui');
+        ui.style.display = 'flex';
+        ui.style.flexDirection = 'column';
 
-        settings.distance = parseInt(ui_distance.value);
-    };
-    ui.addEventListener('input', () => {
-        update_ui();
-    });
-    ui.addEventListener('close', () => {
-        if (ui.returnValue === 'ok') {
-            settings.bodies = parseInt(ui_bodies.value);
-            settings.species = parseInt(ui_species.value);
-            settings.distance = parseInt(ui_distance.value);
-            clear();
-            setup();
+        const panel = document.createElement('div');
+        panel.style.display = 'grid';
+        panel.style.padding = '10px';
+        panel.style.gap = '10px';
+        ui.appendChild(panel);
+
+        let row = 0;
+
+        const label = (txt) => {
+            const label = document.createElement('span');
+            label.appendChild(document.createTextNode(txt));
+            label.style.gridRow = row;
+            label.style.gridColumn = 1;
+            panel.appendChild(label);
+        };
+
+        {
+            ++row;
+
+            label('Bodies');
+
+            const range = document.createElement('input');
+            range.type  = 'range';
+            range.min = 50;
+            range.max = 2000;
+            range.step = 50;
+            range.value = settings.bodies;
+            range.style.gridRow = row;
+            range.style.gridColumn = 2;
+            panel.appendChild(range);
+            range.addEventListener('input', () => {
+                const n = parseInt(range.value);
+                if (n < bodies.length) {
+                    bodies = bodies.slice(0, n);
+                } else {
+                    for (let i = bodies.length; i < n; ++i) {
+                        body();
+                    }
+                }
+                settings.bodies = n;
+            });
         }
-    });
+        {
+            ++row;
+
+            label('Distance');
+
+            const range = document.createElement('input');
+            range.type  = 'range';
+            range.min = 0;
+            range.max = 50;
+            range.step = 5;
+            range.value = settings.distance.toString();
+            range.style.gridRow = row;
+            range.style.gridColumn = 2;
+            panel.appendChild(range);
+            range.addEventListener('input', () => {
+                settings.distance = parseInt(range.value);
+            });
+        }
+        {
+            ++row;
+
+            label('Species');
+
+            const range = document.createElement('input');
+            range.type  = 'range';
+            range.min = 1;
+            range.max = 10;
+            range.step = 1;
+            range.value = settings.species.toString();
+            range.style.gridRow = row;
+            range.style.gridColumn = 2;
+            panel.appendChild(range);
+            range.addEventListener('change', () => {
+                settings.species = parseInt(range.value);
+                clear();
+                setup();
+            });
+        }
+        // {
+        //     ++row;
+
+        //     label('Back');
+            
+        //     const cs = document.createElement('input');
+        //     cs.type = 'color';
+        //     cs.value = settings.background;
+        //     cs.style.gridRow = row;
+        //     cs.style.gridColumn = 2;
+        //     panel.appendChild(cs);
+        //     cs.addEventListener('change', () => {
+        //         settings.background = cs.value;
+        //     });
+        // }
+        {
+            ++row;
+
+            label('Mode');
+
+            const select = document.createElement('select');
+            for (const [i, b] of ['Simple', 'Trail', 'Path'].entries()) {
+                const option = document.createElement("option");
+                option.text = b;
+                option.value = i.toString();
+                if (i == current_render) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            }
+            select.style.gridRow = row;
+            select.style.gridColumn = 2;
+            panel.appendChild(select);
+            select.addEventListener('input', () => {
+                current_render = parseInt(select.value);
+                clear();
+            });
+        }
+        {
+            const s = document.createElement('div');
+            s.style.flexGrow = 1;
+            ui.appendChild(s);
+        }
+        {
+            const ul = document.createElement('div');
+            ul.style.fontSize = 'x-small';
+            ul.style.padding = '10px';
+            ul.style.display = 'flex';
+            ul.style.flexDirection = 'column';
+            ui.appendChild(ul);
+            for (const i of ['Z: reset', 'C: clear', 'Escape: show/hide settings']) {
+                const li = document.createElement('div');
+                li.style.margin = 0;
+                li.appendChild(document.createTextNode(i));
+                ul.appendChild(li);
+            }
+        }
+    }
 
     document.onkeydown = (e) => {
         if (!e.repeat) {
@@ -70,9 +185,9 @@ window.addEventListener('load', () => {
                 setup();
             } else if (e.key === 'c') {
                 clear();
-            } else if (e.key === 's') {
-                update_ui();
-                ui.showModal();
+            } else if (e.key === 'Escape') {
+                const ui = document.getElementById('ui');
+                ui.style.display = (ui.style.display === 'none') ? 'flex' : 'none';
             }
         }
     };
@@ -89,11 +204,11 @@ window.addEventListener('load', () => {
     const clear = () => {
         ctx.resetTransform();
         ctx.globalAlpha = 1;
-        ctx.fillStyle = 'black';
+        ctx.fillStyle = settings.background;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx2.resetTransform();
         ctx2.globalAlpha = 1;
-        ctx2.fillStyle = 'black';
+        ctx2.fillStyle = settings.background;
         ctx2.fillRect(0, 0, canvas.width, canvas.height);
     };
     
@@ -164,6 +279,18 @@ window.addEventListener('load', () => {
     let bodies;
     let forces;
     
+    const body = () => {
+        const v = rand(settings.vmax);
+        const d = rand(2 * Math.PI);
+        const s = size();
+        bodies.push({
+            type         : irand(0, settings.species),
+            position     : {x : rand(-s.hwidth, s.hwidth), y : rand(-s.hheight, s.hheight)},
+            velocity     : {x : v * Math.cos(d), y : v * Math.sin(d)},
+            acceleration : {x : 0, y : 0}
+        });
+    };
+
     const setup = () => {
         types = [];
         bodies = [];
@@ -189,26 +316,8 @@ window.addEventListener('load', () => {
         // console.log('types', JSON.stringify(types));
         // console.log('forces', JSON.stringify(Array.from(forces)));
 
-        let body = (ps) => {
-            ps = opt(ps, {});
-            const pp = opt(ps.position, {});
-            const pv = opt(ps.velocity, {});
-            return {
-                type         : opt(ps.type, irand(0, settings.species)),
-                position     : {x : opt(pp.x, 0), y : opt(pp.y, 0)},
-                velocity     : {x : opt(pv.x, 0), y : opt(pv.y, 0)},
-                acceleration : {x : 0           , y : 0           }
-            };
-        };
-        
         for (let i = 0; i < settings.bodies; ++i) {
-            const v = rand(settings.vmax);
-            const d = rand(2 * Math.PI);
-            const s = size();
-            bodies.push(body({
-                position : {x : rand(-s.hwidth, s.hwidth), y : rand(-s.hheight, s.hheight)},
-                velocity : {x : v * Math.cos(d), y : v * Math.sin(d)}
-            }));
+            body();
         }
     };
     
@@ -295,12 +404,13 @@ window.addEventListener('load', () => {
     };
     
     const render = [
+        // simple
         () => {
             const s = size();
             
             ctx.resetTransform();
             ctx2.globalAlpha = 1;
-            ctx.fillStyle = 'black';
+            ctx.fillStyle = settings.background;
             ctx.fillRect(0, 0, s.width, s.height);
             
             ctx.setTransform(1, 0.0, 0.0, 1, s.hwidth, s.hheight);
@@ -313,12 +423,13 @@ window.addEventListener('load', () => {
                 ctx.fill();
             }
         },
+        // trail
         () => {
             const s = size();
             
             ctx2.resetTransform();
             ctx2.globalAlpha = 1;
-            ctx2.fillStyle = 'black';
+            ctx2.fillStyle = settings.background;
             ctx2.fillRect(0, 0, s.width, s.height);
             ctx2.globalAlpha = 0.9;
             ctx2.drawImage(canvas, 0, 0);
@@ -338,6 +449,7 @@ window.addEventListener('load', () => {
             ctx.globalAlpha = 1;
             ctx.drawImage(canvas2, 0, 0);
         },
+        // path
         () => {
             const s = size();
             
