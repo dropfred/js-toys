@@ -6,7 +6,7 @@ Javascript toys.
 
 ![](screenshots/n-body_1.jpg) ![](screenshots/n-body_2.jpg)
 
-_Note: this project is outdated, see nbody_revisited below._
+_Note: this toy is outdated, see nbody_revisited below._
 
 [live](https://dropfred.github.io/js-toys/nbody/index.html)
 
