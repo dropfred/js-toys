@@ -117,10 +117,10 @@ window.addEventListener('load', () => {
 
             const range = document.createElement('input');
             range.type  = 'range';
-            range.value = settings.trail.size;
             range.min = 0;
             range.max = settings.trail.infinite;
             range.step = 1;
+            range.value = settings.trail.size;
             range.style.gridRow = row;
             range.style.gridColumn = 2;
             panel.appendChild(range);
@@ -170,10 +170,10 @@ window.addEventListener('load', () => {
             
             const range = document.createElement('input');
             range.type  = 'range';
-            range.value = settings.year.duration;
             range.min = settings.year.min;
             range.max = settings.year.max;
             range.step = 1;
+            range.value = settings.year.duration;
             range.style.gridRow = row;
             range.style.gridColumn = 2;
             panel.appendChild(range);
@@ -302,7 +302,7 @@ window.addEventListener('load', () => {
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
         }
 
-        function draw(material, options) {
+        function draw(material, options = {}) {
             options = Object.assign({}, Tk.opt(options, {}));
             options.uniforms = Tk.opt(options.uniforms, {});
             options.attributes = Tk.opt(options.attributes, {});
@@ -419,7 +419,7 @@ window.addEventListener('load', () => {
 
                 void main()
                 {
-                    float d = dot(v_position, v_position);
+                    float d = length(v_position);
                     #if defined(GL_OES_standard_derivatives) 
                     float w = fwidth(d) * 2.0;
                     #else
