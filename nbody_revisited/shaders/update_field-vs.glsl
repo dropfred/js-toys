@@ -9,11 +9,11 @@ uniform float u_range;
 #if defined(NORMALIZE)
 uniform vec2 u_scale;
 #endif
-uniform int u_ntypes;
+uniform int u_nspecies;
 
 void main()
 {
-    int type = gl_VertexID % u_ntypes;
+    int type = gl_VertexID % u_nspecies;
 
     v_type = type;
 

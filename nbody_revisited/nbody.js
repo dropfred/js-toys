@@ -3,6 +3,7 @@
 import {WGL} from './utils/wgl.js';
 import {Palette} from './utils/palette.js';
 import {Fps} from './utils/fps.js';
+import * as Tk from './utils/tk.js';
 
 window.addEventListener('load', async () => {
     function Range(value, min, max, step) {
@@ -11,15 +12,13 @@ window.addEventListener('load', async () => {
     const settings = {
         background : [0.02, 0.02, 0.1],
         simulation : {
-            nbodies  : Range(1000, 1, 10000),
-            nspecies : Range(2, 1, 4),
-            crazy    : Range(0, 0, 7, 1),
-            damping  : Range(0.002, 0.0, 0.05, 0.0005),
-            velocity : Range(100, 10, 500),
-            reset    : {
-                position : [1, 1],
-                velocity : [1, 1]
-            }
+            nbodies    : Range(1000, 1, 10000, 1),
+            nspecies   : Range(2, 1, 4),
+            crazy      : Range(0, 0, 7, 1),
+            damping    : Range(0.002, 0.0, 0.05, 0.0005),
+            velocity   : Range(100, 10, 500),
+            gravity    : Range(0, 0, 0.5, 0.05),
+            resolution : Range(1, 0, 4)
         },
         body : {
             // size in pixels
@@ -31,13 +30,12 @@ window.addEventListener('load', async () => {
             saturation : Range(0.5, 0, 1, 0.01)
         },
         force : {
-            resolution : Range(1, 0, 4),
             // size in pixels
-            range      : Range(125, 0, 250),
-            strength   : Range(50, -100, 100),
+            range    : Range(125, 0, 250),
+            strength : Range(75, 0, 100),
             // decay power
-            decay      : Range(1, 0, 3, 0.1),
-            zero       : Range(0.01, 0, 0.8, 0.01)
+            decay    : Range(1, 0, 3, 0.1),
+            zero     : Range(0.01, 0, 0.8, 0.01)
         },
         log : {
             debug : false,
@@ -63,23 +61,24 @@ window.addEventListener('load', async () => {
         preserveDrawingBuffer : false
     });
 
-    const wgl = WGL(gl, {extensions : ['EXT_color_buffer_float', 'EXT_float_blend']});
+    const wgl = WGL(gl, {extensions : ['EXT_color_buffer_float', 'EXT_color_buffer_half_float', 'EXT_float_blend']});
 
     const SOURCE = {
-        VIEWPORT_SIZE       : {},
-        BODY_SIZE           : {},
-        FORCE_RANGE         : {},
-        FORCE_DECAY         : {},
-        FORCE_ZERO          : {},
-        FORCE_STRENGTH      : {},
-        SIMULATION_DAMPING  : {},
-        SIMULATION_NSPECIES : {},
-        SIMULATION_VELOCITY : {},
-        SIMULATION_RANDOM   : {},
-        SIMULATION_FORCES   : {manual : true},
-        SIMULATION_DT       : {manual : true},
-        DISPLAY_SATURATION  : {},
-        DISPLAY_PALETTE     : {manual : true}
+        VIEWPORT_SIZE        : {},
+        BODY_SIZE            : {},
+        FORCE_RANGE          : {},
+        FORCE_DECAY          : {},
+        FORCE_ZERO           : {},
+        FORCE_STRENGTH       : {},
+        SIMULATION_DAMPING   : {},
+        SIMULATION_NSPECIES  : {},
+        SIMULATION_VELOCITY  : {},
+        SIMULATION_GRAVITY   : {},
+        SIMULATION_RANDOM    : {},
+        SIMULATION_FORCES    : {manual : true},
+        SIMULATION_DT        : {manual : true},
+        DISPLAY_SATURATION   : {},
+        DISPLAY_PALETTE      : {manual : true}
     };
 
     const source = (() => {
@@ -99,6 +98,7 @@ window.addEventListener('load', async () => {
                         : (id === SOURCE.FORCE_ZERO         ) ? settings.force.zero.value
                         : (id === SOURCE.FORCE_STRENGTH     ) ? settings.force.strength.value
                         : (id === SOURCE.SIMULATION_VELOCITY) ? settings.simulation.velocity.value
+                        : (id === SOURCE.SIMULATION_GRAVITY ) ? settings.simulation.gravity.value
                         : (id === SOURCE.SIMULATION_DAMPING ) ? settings.simulation.damping.value
                         : (id === SOURCE.SIMULATION_NSPECIES) ? settings.simulation.nspecies.value
                         : (id === SOURCE.SIMULATION_RANDOM  ) ? Math.random()
@@ -111,7 +111,6 @@ window.addEventListener('load', async () => {
                     for (const s of sources.get(id)) {
                         const u = (s.update !== undefined) ? s.update(v) : v;
                         if (u !== undefined) {
-                            gl.useProgram(s.material.program);
                             s.material.uniform(s.uniform, u);
                         }
                     }
@@ -148,30 +147,31 @@ window.addEventListener('load', async () => {
             fragment : await fetch('shaders/draw_body-fs.glsl').then(r => r.text())
         };
         material.draw_body = wgl.material(wgl.program(
-            wgl.shader.vertex(src.vertex, [`NUM_TYPES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
+            wgl.shader.vertex(src.vertex, [`MAX_SPECIES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
             wgl.shader.fragment(src.fragment, ['AA=2.0'])
         ));
         source(SOURCE.BODY_SIZE, material.draw_body, 'u_size');
         source(SOURCE.DISPLAY_PALETTE, material.draw_body, 'u_palette');
         material.draw_body_point = wgl.material(wgl.program(
-            wgl.shader.vertex(src.vertex, [`NUM_TYPES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
+            wgl.shader.vertex(src.vertex, [`MAX_SPECIES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
             wgl.shader.fragment(src.fragment, ['POINT'])
         ));
         source(SOURCE.BODY_SIZE, material.draw_body_point, 'u_size');
         source(SOURCE.DISPLAY_PALETTE, material.draw_body_point, 'u_palette');
     }
+    // TODO : check how significantly perfs increase with 2 shaders (2/4 species) rather than just 1 (4 species)
     {
         const src = {
             vertex   : await fetch('shaders/update_field-vs.glsl').then(r => r.text()),
             fragment : await fetch('shaders/update_field-fs.glsl').then(r => r.text())
         };
         material.update_field = wgl.material(wgl.program(
-            wgl.shader.vertex(src.vertex, [`NUM_TYPES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
-            wgl.shader.fragment(src.fragment, [`NUM_TYPES=${settings.simulation.nspecies.max}`])
+            wgl.shader.vertex(src.vertex, [`MAX_SPECIES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
+            wgl.shader.fragment(src.fragment, [`MAX_SPECIES=${settings.simulation.nspecies.max}`,])
         ));
         source(
             SOURCE.FORCE_RANGE, material.update_field, 'u_range',
-            r => r * (1.0 / (2 ** (settings.force.resolution.max - settings.force.resolution.value)))
+            r => r * (1.0 / (2 ** (settings.simulation.resolution.max - settings.simulation.resolution.value)))
         );
         source(SOURCE.FORCE_DECAY, material.update_field, 'u_decay');
         source(SOURCE.FORCE_ZERO , material.update_field, 'u_zero');
@@ -184,14 +184,26 @@ window.addEventListener('load', async () => {
         };
         material.update_dynamics = wgl.material(
             wgl.program(
-                wgl.shader.vertex(src.update_vertex, [`NUM_TYPES=${settings.simulation.nspecies.max}`, 'MAX_VELOCITY', 'NORMALIZE', 'NOISE', 'BORDER=BOUNCE_HARD']),
+                wgl.shader.vertex(src.update_vertex, [
+                    `MAX_SPECIES=${settings.simulation.nspecies.max}`,
+                    'MAX_VELOCITY',
+                    'NORMALIZE',
+                    // 'NOISE',
+                    'BORDER=BOUNCE_HARD'
+                ]),
                 wgl.shader.fragment(src.fragment),
                 ['v_position', 'v_velocity', 'v_acceleration']
             )
         );
         material.update_dynamics_soft = wgl.material(
             wgl.program(
-                wgl.shader.vertex(src.update_vertex, [`NUM_TYPES=${settings.simulation.nspecies.max}`, 'MAX_VELOCITY', 'NORMALIZE', 'NOISE', 'BORDER=BOUNCE_SOFT']),
+                wgl.shader.vertex(src.update_vertex, [
+                    `MAX_SPECIES=${settings.simulation.nspecies.max}`,
+                    'MAX_VELOCITY',
+                    'NORMALIZE',
+                    // 'NOISE',
+                    'BORDER=BOUNCE_SOFT'
+                ]),
                 wgl.shader.fragment(src.fragment),
                 ['v_position', 'v_velocity', 'v_acceleration']
             )
@@ -205,22 +217,24 @@ window.addEventListener('load', async () => {
         );
         for (const m of [material.update_dynamics, material.update_dynamics_soft]) {
             gl.useProgram(m.program);
-            m.uniform('u_field01', 0);
-            if (settings.simulation.nspecies.max > 2) {
-                m.uniform('u_field23', 1);
+            {
+                let a = 0;
+                m.uniform('u_field01', a++);
+                if (settings.simulation.nspecies.max > 2) {
+                    m.uniform('u_field23', a++);
+                }
             }
             source(SOURCE.FORCE_STRENGTH, m, 'u_strength');
             source(SOURCE.SIMULATION_DAMPING, m, 'u_damping');
             source(SOURCE.SIMULATION_DT, m, 'u_dt');
             source(SOURCE.SIMULATION_FORCES, m, 'u_forces');
             source(SOURCE.SIMULATION_VELOCITY, m, 'u_max_velocity');
+            source(SOURCE.SIMULATION_GRAVITY, m, 'u_gravity', g => [0, -(g * settings.force.range.max)]);
         }
-        source(
-            SOURCE.VIEWPORT_SIZE, material.reset_dynamics, 'u_position_range',
-            (wh) => [(wh[0] / 2) * settings.simulation.reset.position[0], (wh[1] / 2) * settings.simulation.reset.position[1]]
-        );
-        source(SOURCE.SIMULATION_VELOCITY, material.reset_dynamics, 'u_velocity_range', v => [v, v]);
+        source(SOURCE.VIEWPORT_SIZE, material.reset_dynamics, 'u_size', (wh) => [(wh[0] / 2), (wh[1] / 2)]);
+        source(SOURCE.SIMULATION_VELOCITY, material.reset_dynamics, 'u_velocity');
         source(SOURCE.SIMULATION_RANDOM, material.reset_dynamics, 'u_seed', r => Math.round(r * 0xffffff));
+        material.reset_dynamics.uniform('u_position', 1);
     }
     {
         const src = {
@@ -229,9 +243,8 @@ window.addEventListener('load', async () => {
         };
         material.draw_field = wgl.material(wgl.program(
             wgl.shader.vertex(src.vertex, ['TEXTURE']),
-            wgl.shader.fragment(src.fragment, [`NUM_TYPES=${settings.simulation.nspecies.max}`])
+            wgl.shader.fragment(src.fragment, [`MAX_SPECIES=${settings.simulation.nspecies.max}`])
         ));
-        gl.useProgram(material.draw_field.program);
         material.draw_field.uniform('u_size', [1.0, 1.0]);
         material.draw_field.uniform('u_offset', [0.0, 0.0]);
         material.draw_field.uniform('u_field01', 0);
@@ -245,9 +258,15 @@ window.addEventListener('load', async () => {
         source(SOURCE.DISPLAY_PALETTE, material.draw_field, 'u_palette');
     }
 
-    for (const m of [material.update_field, material.update_dynamics, material.update_dynamics_soft, material.draw_body, material.draw_body_point]) {
+    for (const m of [
+        material.update_field,
+        material.update_dynamics,
+        material.update_dynamics_soft,
+        material.draw_body,
+        material.draw_body_point
+    ]) {
         source(SOURCE.VIEWPORT_SIZE, m, 'u_scale', (wh) => [2.0 / wh[0], 2.0 / wh[1]]);
-        source(SOURCE.SIMULATION_NSPECIES, m, 'u_ntypes');
+        source(SOURCE.SIMULATION_NSPECIES, m, 'u_nspecies');
     }
 
     const vbo = {
@@ -274,8 +293,12 @@ window.addEventListener('load', async () => {
     for (const [i, r] of render.entries()) {
         gl.bindVertexArray(r.display);
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo.dynamics[i]);
-        material.draw_body.attribute ('a_position', {stride : 24});
-        material.update_field.attribute('a_position', {stride : 24});
+        for (const m of [
+            material.draw_body,
+            material.update_field
+        ]) {
+            m.attribute('a_position', {stride : 24});
+        }
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
         gl.bindVertexArray(null);
 
@@ -299,11 +322,11 @@ window.addEventListener('load', async () => {
             w = canvas.width;
             h = canvas.height;
         }
+        const r = (1.0 / (2 ** (settings.simulation.resolution.max - settings.simulation.resolution.value)));
+        if (settings.log.debug) {
+            console.debug('### resolution', r);
+        }
         for (const t of field.textures) {
-            const r = (1.0 / (2 ** (settings.force.resolution.max - settings.force.resolution.value)));
-            if (settings.log.debug) {
-                console.debug('### resolution', r);
-            }
             gl.bindTexture(gl.TEXTURE_2D, t);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w * r, h * r, 0, gl.RGBA, gl.FLOAT, null);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -320,27 +343,33 @@ window.addEventListener('load', async () => {
         source(SOURCE.DISPLAY_PALETTE, cs);
     }
 
+    // TODO : ensure more variety
     function force() {
         const fs = [];
-        for (let i = 0; i < settings.simulation.nspecies.max * settings.simulation.nspecies.max; ++i) {
-            fs.push(Math.random() * 2.0 - 1.0);
+        for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
+            for (let b = 0; b < settings.simulation.nspecies.max; ++b) {
+                fs.push(Math.random() * 0.5 + ((a === b) ? 0 : 0.5));
+            }
         }
+        source(SOURCE.SIMULATION_FORCES, fs);
         if (settings.log.info) {
             console.info('### forces', JSON.stringify(fs));
         }
-        source(SOURCE.SIMULATION_FORCES, fs);
     }
 
     function update_dynamics(render, reset = false) {
         const [bs, p]  = reset ? [settings.simulation.nbodies.max  , material.reset_dynamics.program]
                                : [settings.simulation.nbodies.value, run.update.program];
         gl.useProgram(p);
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, field.textures[0]);
-        gl.activeTexture(gl.TEXTURE1);
-        if (settings.simulation.nspecies.max > 2) {
-            gl.bindTexture(gl.TEXTURE_2D, field.textures[1]);
-        } else {
+        {
+            let a = 0;
+            gl.activeTexture(gl.TEXTURE0 + a++);
+            gl.bindTexture(gl.TEXTURE_2D, field.textures[0]);
+            if (settings.simulation.nspecies.max > 2) {
+                gl.activeTexture(gl.TEXTURE0 + a++);
+                gl.bindTexture(gl.TEXTURE_2D, field.textures[1]);
+            }
+            gl.activeTexture(gl.TEXTURE0 + a);
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
         gl.bindVertexArray(render.update);
@@ -363,7 +392,7 @@ window.addEventListener('load', async () => {
     function update_field(render, clear = false) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, field.fb);
         {
-            const r = (1.0 / (2 ** (settings.force.resolution.max - settings.force.resolution.value)));
+            const r = (1.0 / (2 ** (settings.simulation.resolution.max - settings.simulation.resolution.value)));
             gl.viewport(0, 0, gl.canvas.width * r, gl.canvas.height * r);
         }
         gl.drawBuffers([gl.COLOR_ATTACHMENT0, (clear || (settings.simulation.nspecies.value > 2)) ? gl.COLOR_ATTACHMENT1 : gl.NONE]);
@@ -473,16 +502,18 @@ window.addEventListener('load', async () => {
 
         const panel = document.createElement('div');
         panel.style.display = 'grid';
-        panel.style.padding = '10px';
-        panel.style.gap = '10px';
+        panel.style.padding = '5px';
+        panel.style.gap = '5px';
         ui.appendChild(panel);
 
         const deps = {};
         const update_deps = () => {
             deps.saturation.disabled = !deps.draw_field.checked;
+            deps.info();
         };
 
-        const Range = (r, u, cb = 'input') => {
+        const Range = (r, u, cb = 'input', s) => {
+            const span = document.createElement('span');
             const range = document.createElement('input');
             range.type  = 'range';
             range.min = r.min;
@@ -491,10 +522,25 @@ window.addEventListener('load', async () => {
                 range.step = r.step;
             }
             range.value = r.value;
+            const info = document.createElement('span');
+            info.style.fontSize = 'x-small';
+            span.appendChild(range);
+            span.appendChild(info);
+            const sync = () => {
+                let t = range.value.toString();
+                if (s !== undefined) {
+                    t = s(t);
+                }
+                info.innerHTML = t;
+            };
             if (u !== undefined) {
-                range.addEventListener(cb, () => {u(range.value);});
+                range.addEventListener(cb, () => {
+                    sync();
+                    u(range.value);
+                });
             }
-            return range;
+            sync();
+            return span;
         };
         const row = (() => {
             let nrs = 0;
@@ -507,7 +553,7 @@ window.addEventListener('load', async () => {
                 if (element !== undefined) {
                     label.style.gridRow = nrs;
                     label.style.gridColumn = 1;
-
+                    //label.style.fontSize = 'small';
                     element.style.gridRow = nrs;
                     element.style.gridColumn = 2;
                     panel.appendChild(element);
@@ -531,16 +577,23 @@ window.addEventListener('load', async () => {
             settings.simulation.nspecies.value = parseInt(v);
             source(SOURCE.SIMULATION_NSPECIES);
         }, 'change'));
-        row('Bodies', Range(settings.simulation.nbodies, (v) => {
-            settings.simulation.nbodies.value = parseInt(v);
-        }));
-        row('Go crazy', Range(settings.simulation.crazy, (v) => {
-            settings.simulation.crazy.value = parseInt(v);
-            body();
-        }, 'change'));
+        {
+            const s = Range(settings.simulation.nbodies, (v) => {
+                settings.simulation.nbodies.value = parseInt(v);
+            }, 'input', v => `${parseInt(v) * (2 ** settings.simulation.crazy.value)}`);
+            const i = s.children[1];
+            deps.info = () => {
+                i.innerHTML = `${settings.simulation.nbodies.value * (2 ** settings.simulation.crazy.value)}`;
+            };
+            row('Bodies', s);
+        }
         row('Velocity', Range(settings.simulation.velocity, (v) => {
             settings.simulation.velocity.value = parseFloat(v);
             source(SOURCE.SIMULATION_VELOCITY);
+        }));
+        row('Gravity', Range(settings.simulation.gravity, (v) => {
+            settings.simulation.gravity.value = parseFloat(v);
+            source(SOURCE.SIMULATION_GRAVITY);
         }));
         row('Damping', Range(settings.simulation.damping, (v) => {
             settings.simulation.damping.value = parseFloat(v);
@@ -561,6 +614,11 @@ window.addEventListener('load', async () => {
             });
             row('Border', select);
         }
+        row('Go crazy', Range(settings.simulation.crazy, (v) => {
+            settings.simulation.crazy.value = parseInt(v);
+            body();
+            update_deps();
+        }, 'change'));
         row('Body');
         row('Size', Range(settings.body.size, (v) => {
             settings.body.size.value = parseFloat(v);
@@ -584,7 +642,7 @@ window.addEventListener('load', async () => {
             source(SOURCE.FORCE_ZERO);
         }));
         row('Resolution', Range({value : 1, min : 0, max : 4, step : 1}, (v) => {
-            settings.force.resolution.value = parseInt(v);
+            settings.simulation.resolution.value = parseInt(v);
             resize();
             source(SOURCE.FORCE_RANGE);
         }));
@@ -643,8 +701,8 @@ window.addEventListener('load', async () => {
             for (const i of [
                 'F : randomize force',
                 'C : change palette',
-                'R : reset',
-                'L : log fps',
+                'R : reset random',
+                'B : reset big bang',
                 'Click : apply force',
                 'Space : freeze time',
                 'Escape : show/hide settings'
@@ -674,9 +732,15 @@ window.addEventListener('load', async () => {
                 force();
             } else if (e.key.toUpperCase() === 'R') {
                 source(SOURCE.SIMULATION_RANDOM);
+                material.reset_dynamics.uniform('u_position', 1);
                 reset_dynamics();
-            } else if (e.key.toUpperCase() === 'L') {
-                settings.log.fps = !settings.log.fps;
+            } else if (e.key.toUpperCase() === 'B') {
+                material.reset_dynamics.uniform('u_position', 0);
+                reset_dynamics();
+            } else if (e.key.toUpperCase() === 'D') {
+                settings.log.debug = !settings.log.debug;
+            } else if (e.key.toUpperCase() === 'I') {
+                settings.log.info = !settings.log.info;
             }
         }
     };
@@ -710,7 +774,7 @@ window.addEventListener('load', async () => {
 
     function step() {
         if (fps.tick() > 1) {
-            if (settings.log.info) {console.info('fps', fps.get());}
+            if (settings.log.debug) {console.info('fps', fps.get());}
             fps.get();
         }
         const t = Date.now();

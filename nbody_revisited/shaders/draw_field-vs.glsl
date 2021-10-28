@@ -19,7 +19,7 @@ void main()
     v_uv.t = 1.0 - v_uv.t;
 #endif
 #endif
-    p += vec2(-1.0);
+    p -= vec2(1.0);
     p *= u_size;
     p += u_offset;
     gl_Position = vec4(p, 0.0, 1.0);

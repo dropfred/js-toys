@@ -1,16 +1,18 @@
 #version 300 es
 
-#if (NUM_TYPES > 4)
-#error NUM_TYPES exceeds max value
+#if (MAX_SPECIES > 4)
+#error MAX_SPECIES exceeds max value
 #endif
 
 #if defined(BORDER)
+
 #define BOUNCE_SOFT 1
 #define BOUNCE_HARD 2
 
-//#define BOUNCE_SOFT_FIXED 0.2f
-#define BOUNCE_SOFT_FIXED 0.005f
+// some black magic here
+#define BOUNCE_SOFT_STRENGTH 0.005f
 #define BOUNCE_SOFT_DISTANCE 100.0f
+
 #endif
 
 in vec2 a_position;
@@ -21,14 +23,17 @@ out vec2 v_position;
 out vec2 v_velocity;
 out vec2 v_acceleration;
 
-uniform int u_ntypes;
+out vec4 v_debug;
+
+uniform int u_nspecies;
 uniform float u_strength;
 uniform float u_damping;
+uniform vec2 u_gravity;
 #if defined(BOUNCE_SOFT_DYNAMIC)
 uniform float u_border;
 #endif
 uniform float u_dt;
-uniform float[NUM_TYPES * NUM_TYPES] u_forces;
+uniform float[MAX_SPECIES * MAX_SPECIES] u_forces;
 uniform vec2 u_half_vp;
 #if defined(NORMALIZE)
 uniform vec2 u_scale;
@@ -38,7 +43,7 @@ uniform float u_max_velocity;
 #endif
 
 uniform sampler2D u_field01;
-#if (NUM_TYPES > 2)
+#if (MAX_SPECIES > 2)
 uniform sampler2D u_field23;
 #endif
 
@@ -48,7 +53,7 @@ const float EPSILON = 0.000000001f;
 
 void main()
 {
-    int type = gl_VertexID % u_ntypes;
+    int type = gl_VertexID % u_nspecies;
     vec2 uv = ((a_position * u_scale) + vec2(1.0)) * 0.5;
 #if defined(TEXTURE_FLIP_S)
     uv.s = 1.0 - uv.s;
@@ -60,58 +65,58 @@ void main()
     vec2 acceleration = vec2(0.0);
 
 #if defined(BORDER) && (BORDER == BOUNCE_SOFT)
-    // soft bounce, or come back when lower resized
     {
-#if defined(BOUNCE_SOFT_DYNAMIC)
-    float border = u_border;
-#else
-    float border = BOUNCE_SOFT_FIXED;
-#endif
         vec2 ap = abs(a_position);
         vec2 vp = 1.0 / u_scale;
         vec2 b = step(vp, ap);
-        vec2 d = min((ap - vp), vec2(BOUNCE_SOFT_DISTANCE));
-
-        acceleration -= b * normalize(a_position) * u_strength * border * d;
+        if (b != vec2(0.0, 0.0))
+        {
+            vec2 d = min((ap - vp), vec2(BOUNCE_SOFT_DISTANCE));
+            acceleration -= b * normalize(a_position) * u_strength * BOUNCE_SOFT_STRENGTH * d;
+        }
     }
 #endif
 
-    int f = type * NUM_TYPES;
+    int f = type * MAX_SPECIES;
     
     {
         vec4 force = texture(u_field01, uv);
         acceleration += force.xy * u_forces[f];
-#if (NUM_TYPES > 1)
+#if (MAX_SPECIES > 1)
         acceleration += force.zw * u_forces[f + 1];
 #endif
     }
-#if (NUM_TYPES > 2)
+#if (MAX_SPECIES > 2)
     {
         vec4 force = texture(u_field23, uv);
         acceleration += force.xy * u_forces[f + 2];
-#if (NUM_TYPES > 3)
+#if (MAX_SPECIES > 3)
         acceleration += force.zw * u_forces[f + 3];
 #endif
     }
 #endif
 
     acceleration *= u_strength;
-    // acceleration /= u_mass;
+
+    acceleration += u_gravity;
 
     v_velocity = (a_velocity * (1.0 - (u_damping * step(EPSILON, u_dt)))) + (acceleration * u_dt);
     v_position = a_position + a_velocity * u_dt;
     v_acceleration = acceleration;
 
 #if defined(MAX_VELOCITY)
-    // velocity limit
     {
         float mv = u_max_velocity;
         float v = length(v_velocity);
-        v = max(1.0, v / mv);
-        v_velocity /= v;
+        if (v > 0.0)
+        {
+            v = max(1.0, v / mv);
+            v_velocity /= v;
+        }
     }
 #endif    
 
+// TODO : bug : currently, bodies are lost when outside (passing from soft to hard borders, or down resising) with null velocity.
 #if defined(BORDER) && (BORDER == BOUNCE_HARD)
     // hard bounce, or come back when lower resized
     {
@@ -122,11 +127,8 @@ void main()
     }
 #endif
 
-#if defined(DEBUG)
-    gl_PointSize = 20.0;
-#endif
-
     vec2 position = a_position;
+
 #if defined(NORMALIZE)
     position *= u_scale;
 #endif

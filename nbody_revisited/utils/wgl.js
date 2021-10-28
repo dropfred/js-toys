@@ -160,6 +160,7 @@ function WGL(gl, options = {}) {
             if (i === undefined) {
                 throw 'invalid uniform ' + name;
             }
+            gl.useProgram(program);
             if ((value.length === 1) && (value[0] instanceof (Array))) {
                 value = value[0];
                 switch (i.type) {
