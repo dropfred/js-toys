@@ -26,7 +26,7 @@ _Note 2: this is a work in progress, and some features are missing. In particula
 
 Retake on the n-body toy.
 
-Although the initial n-body simulation is quite funny, the very limited number of bodies involved is frustrating. The two main reasons for that is, first the naive brute force approach with n^2 complexity, and second the fact that drawing to the canvas using the 2d renderer takes a lot of time. So I decided to test another approach using WebGL 2. The Simulation now runs entirely on the GPU, and the complexity is now linear. On a computer with a decent graphic card, more than 300,000 bodies can now be simulated at 60 fps, with nearly 0% CPU utilization. Also, it now comes with a lot of parameters to play with.
+Although the initial n-body simulation is quite funny, the very limited number of bodies involved is frustrating. The two main reasons for that is, first the naive brute force approach with n^2 complexity, and second the fact that drawing to the canvas using the 2d renderer actually takes a lot of time. So I decided to test another approach using WebGL 2. The simulation now runs entirely on the GPU, and the complexity is linear. On a computer with a decent graphic card, depending on the settings, more than 300,000 bodies can be simulated at 60 fps, with nearly 0% CPU utilization. Also, it now comes with a lot more parameters to play with.
 
 ## orbit
 
