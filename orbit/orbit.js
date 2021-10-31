@@ -272,20 +272,19 @@ window.addEventListener('load', () => {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
-        clear();
     };
 
+    resize();
+
     for (const r of render) {
-        gl.bindTexture(gl.TEXTURE_2D, r.texture);
         gl.bindFramebuffer(gl.FRAMEBUFFER, r.fb);
+        gl.bindTexture(gl.TEXTURE_2D, r.texture);
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, r.texture, 0);
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
-    resize();
-
-    (new ResizeObserver(() => {resize();})).observe(gl.canvas);
+    (new ResizeObserver(() => {resize(); clear();})).observe(gl.canvas);
 
     // 2d rectangle
     function Rectangle(gl) {

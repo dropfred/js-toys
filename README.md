@@ -24,7 +24,9 @@ _Note: this toy requires WebGL 2 for OpenGL ES 3 transform feedback, plus the EX
 
 Retake on the n-body toy.
 
-Although the initial n-body simulation is quite funny, the very limited number of bodies involved is very frustrating. The two main reasons for that is, first the naive brute force approach with n^2 complexity, and second the fact that drawing to the canvas using the 2d renderer is actually slow. So I decided to test another approach using WebGL 2. The simulation now runs entirely on the GPU, and the complexity is linear. On a computer with a decent graphic card, depending on the settings, more than 300,000 bodies can be simulated at 60 fps, with nearly 0% CPU utilization. Also, it now comes with a lot more parameters to play with. Note that using a totally different method for computing the dynamics, the results are quite different. As a notable difference, collisions are currently not handled in the WebGL version, and this is why attractive forces are not used in this version.
+The initial n-body simulation is quite funny, but the very limited number of bodies involved is very frustrating. The two main reasons for that is, first the naive brute force approach with n^2 complexity, and second the fact that drawing to the canvas using the 2d renderer is actually slow. So I decided to test another approach using WebGL 2. The simulation now runs entirely on the GPU, and the complexity is linear. On a computer with a decent graphic card, depending on the settings, more than 300,000 bodies can be simulated at 60 fps, with nearly 0% CPU utilization. Also, it now comes with a lot more parameters to play with. Note that using a totally different method for computing the dynamics, the results are quite different. As a notable difference, collisions are currently not handled in the WebGL version, and this is why attractive forces are not used in this version.
+
+Although absolutely not perfect (there are some severe limitations, and very occasionally some minor bugs), I am quite satisfied with the result. Despite using very basic newtonian physics and crude approximations, results are very organic.
 
 Few explanations for the demo's settings:
 - When it makes sense, parameters' units are in pixels for length, and seconds for time. As an example, velocity is expressed in pixels/second.
@@ -35,7 +37,10 @@ Few explanations for the demo's settings:
 Some tips for a maximum of bodies :
 - Set the number of species to one or two.
 - Use the lowest body size and force resolution.
+- Use bounce border mode.
 - Use a low force range (about 10-30 pixels) with a zero decay.
+
+_Caveats: although the demo runs correctly on smartphones supporting WEBGL 2, the UI is not designed for mobile devices._
 
 ## orbit
 
