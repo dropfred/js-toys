@@ -1,6 +1,6 @@
 # js-toys
 
-Javascript toys.
+Random Javascript toys.
 
 ## nbody
 
@@ -18,15 +18,24 @@ Interactions between species are random, and some sets are more fun than others.
 
 ![](screenshots/n-body_revisited_1.jpg) ![](screenshots/n-body_revisited_2.jpg) ![](screenshots/n-body_revisited_3.jpg)
 
-_Note: this toy requires WebGL 2 for OpenGL ES 3 transform feedback, plus the EXT_color_buffer_float and EXT_float_blend extensions. Extensions are needed because integer textures cannot be blended (even simply added), and float textures cannot be rendered._
-
-_Note 2: this is a work in progress, and some features are missing. In particular, bodies can currently overlap, which should ideally be forbidden._
+_Note: this toy requires WebGL 2 for OpenGL ES 3 transform feedback, plus the EXT_color_buffer_float and EXT_float_blend extensions. Extensions are required because vanilla OpenGL ES 3 forbids integer textures blending and rendered float textures._
 
 [live](https://dropfred.github.io/js-toys/nbody_revisited/index.html)
 
 Retake on the n-body toy.
 
-Although the initial n-body simulation is quite funny, the very limited number of bodies involved is frustrating. The two main reasons for that is, first the naive brute force approach with n^2 complexity, and second the fact that drawing to the canvas using the 2d renderer actually takes a lot of time. So I decided to test another approach using WebGL 2. The simulation now runs entirely on the GPU, and the complexity is linear. On a computer with a decent graphic card, depending on the settings, more than 300,000 bodies can be simulated at 60 fps, with nearly 0% CPU utilization. Also, it now comes with a lot more parameters to play with.
+Although the initial n-body simulation is quite funny, the very limited number of bodies involved is very frustrating. The two main reasons for that is, first the naive brute force approach with n^2 complexity, and second the fact that drawing to the canvas using the 2d renderer is actually slow. So I decided to test another approach using WebGL 2. The simulation now runs entirely on the GPU, and the complexity is linear. On a computer with a decent graphic card, depending on the settings, more than 300,000 bodies can be simulated at 60 fps, with nearly 0% CPU utilization. Also, it now comes with a lot more parameters to play with. Note that using a totally different method for computing the dynamics, the results are quite different. As a notable difference, collisions are currently not handled in the WebGL version, and this is why attractive forces are not used in this version.
+
+Few explanations for the demo's settings:
+- When it makes sense, parameters' units are in pixels for length, and seconds for time. As an example, velocity is expressed in pixels/second.
+- The simulation's grow parameter doubles the number of bodies each step up. Be cautious with this one!
+- Force decay is the attenuation power. A power of 0 is no decay, 1 is linear, 2 is quadratic, and so on.
+- Resolution is the resolution factor used for the force field map. Max resolution is equal to the canvas size, and each step down halfs the resolution. Be cautious with this parameter too, updating force field map is a costly operation. Note that this parameter defaults to the lowest level, and it may lead to visible artifacts, in particular in how the bodies arrange themselves.
+
+Some tips for a maximum of bodies :
+- Set the number of species to one or two.
+- Use the lowest body size and force resolution.
+- Use a low force range (about 10-30 pixels) with a zero decay.
 
 ## orbit
 

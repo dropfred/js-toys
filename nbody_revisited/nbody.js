@@ -173,7 +173,7 @@ window.addEventListener('load', async () => {
             wgl.shader.vertex(src.vertex, [`MAX_SPECIES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
             wgl.shader.fragment(src.fragment, ['POINT'])
         ));
-        for (const m of [material.draw_body, material.draw_body]) {
+        for (const m of [material.draw_body, material.draw_body_point]) {
             source_uniform(settings.body.size, m, 'u_size');
             settings.display.palette.addListener(cs => m.uniform('u_palette', cs));
         }
