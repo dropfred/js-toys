@@ -352,6 +352,7 @@ function WGL(gl, options = {}) {
         VERSION,
         EVENT,
         version,
+        extensions,
         shader : {
             vertex,
             fragment

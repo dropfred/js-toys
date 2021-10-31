@@ -6,11 +6,12 @@
 
 #if defined(BORDER)
 
-#define BOUNCE_SOFT 1
-#define BOUNCE_HARD 2
+#define BORDER_BOUNCE_SOFT 1
+#define BORDER_BOUNCE_HARD 2
+#define BORDER_WRAP        3
 
 // some black magic here
-#define BOUNCE_SOFT_STRENGTH 0.005f
+#define BOUNCE_SOFT_STRENGTH 1.0f
 #define BOUNCE_SOFT_DISTANCE 100.0f
 
 #endif
@@ -27,6 +28,7 @@ out vec4 v_debug;
 
 uniform int u_nspecies;
 uniform float u_strength;
+uniform float u_factor;
 uniform float u_damping;
 uniform vec2 u_gravity;
 #if defined(BOUNCE_SOFT_DYNAMIC)
@@ -64,19 +66,6 @@ void main()
 
     vec2 acceleration = vec2(0.0);
 
-#if defined(BORDER) && (BORDER == BOUNCE_SOFT)
-    {
-        vec2 ap = abs(a_position);
-        vec2 vp = 1.0 / u_scale;
-        vec2 b = step(vp, ap);
-        if (b != vec2(0.0, 0.0))
-        {
-            vec2 d = min((ap - vp), vec2(BOUNCE_SOFT_DISTANCE));
-            acceleration -= b * normalize(a_position) * u_strength * BOUNCE_SOFT_STRENGTH * d;
-        }
-    }
-#endif
-
     int f = type * MAX_SPECIES;
     
     {
@@ -96,9 +85,22 @@ void main()
     }
 #endif
 
-    acceleration *= u_strength;
+    acceleration *= u_strength * u_factor;
 
     acceleration += u_gravity;
+
+#if defined(BORDER) && (BORDER == BORDER_BOUNCE_SOFT)
+    {
+        vec2 ap = abs(a_position);
+        vec2 vp = 1.0 / u_scale;
+        vec2 b = step(vp, ap);
+        if (b != vec2(0.0, 0.0))
+        {
+            vec2 d = min((ap - vp), vec2(BOUNCE_SOFT_DISTANCE));
+            acceleration -= b * normalize(a_position) * u_strength * BOUNCE_SOFT_STRENGTH * d;
+        }
+    }
+#endif
 
     v_velocity = (a_velocity * (1.0 - (u_damping * step(EPSILON, u_dt)))) + (acceleration * u_dt);
     v_position = a_position + a_velocity * u_dt;
@@ -117,13 +119,22 @@ void main()
 #endif    
 
 // TODO : bug : currently, bodies are lost when outside (passing from soft to hard borders, or down resising) with null velocity.
-#if defined(BORDER) && (BORDER == BOUNCE_HARD)
+#if defined(BORDER) && (BORDER == BORDER_BOUNCE_HARD)
     // hard bounce, or come back when lower resized
     {
         vec2 b2 = step(1.0 / u_scale, abs(v_position));
         vec2 p2 = sign(v_position);
         vec2 v2 = sign(v_velocity);
         v_velocity *= vec2(1.0) - (2.0 * b2 * step(vec2(0.0), p2 * v2));
+    }
+#endif
+
+#if defined(BORDER) && (BORDER == BORDER_WRAP)
+    {
+        vec2 hvp = 1.0 / u_scale;
+        vec2 b2 = step(hvp, abs(v_position));
+        vec2 p2 = sign(v_position);
+        v_position -= b2 * p2 * hvp * 2.0;
     }
 #endif
 

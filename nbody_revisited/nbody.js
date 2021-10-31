@@ -1,48 +1,94 @@
 "use strict";
 
-import {WGL} from './utils/wgl.js';
+import {WGL    } from './utils/wgl.js';
 import {Palette} from './utils/palette.js';
-import {Fps} from './utils/fps.js';
-import * as Tk from './utils/tk.js';
+import {Fps    } from './utils/fps.js';
+import {Source } from './utils/source.js';
+import {combine} from './utils/tk.js';
 
 window.addEventListener('load', async () => {
-    function Range(value, min, max, step) {
-        return {value, min, max, step};
+    const ENABLE_NEGATIVE_FORCE = false;
+    const ENABLE_UI_ZERO = false;
+
+    class Range {
+        #source;
+        #value;
+
+        constructor(value, min, max, step) {
+            this.#value  = value;
+            this.#source = Source();
+            this.min     = min;
+            this.max     = max;
+            this.step    = step;
+        }
+
+        get value() {
+            return this.#value;
+        }
+
+        set value(value) {
+            this.#value = Math.min(Math.max(value, this.min), this.max);
+            this.notify();
+        }
+
+        addListener(cb) {
+            cb(this.#value);
+            this.#source.addListener(cb);
+        }
+
+        removeListener(cb) {
+            this.#source.removeListener(cb);
+        }
+
+        notify() {
+            this.#source.notify(this.#value);
+        }
     }
+
     const settings = {
-        background : [0.02, 0.02, 0.1],
         simulation : {
-            nbodies    : Range(1000, 1, 10000, 1),
-            nspecies   : Range(2, 1, 4),
-            crazy      : Range(0, 0, 7, 1),
-            damping    : Range(0.002, 0.0, 0.05, 0.0005),
-            velocity   : Range(100, 10, 500),
-            gravity    : Range(0, 0, 0.5, 0.05),
-            resolution : Range(1, 0, 4)
+            nbodies    : new Range(2000, 1, 10000, 1),
+            nspecies   : new Range(2, 1, 4),
+            grow       : new Range(0, 0, 7, 1),
+            damping    : new Range(0.002, 0.0, 0.05, 0.0005),
+            velocity   : new Range(100, 10, 500),
+            gravity    : new Range(0, 0, 0.5, 0.05),
+            resolution : new Range(0, 0, 4),
+            border     : 'bounce',
+            random     : Source()
         },
         body : {
-            // size in pixels
-            size : Range(15, 1, 100)
+            size : new Range(15, 1, 100)
         },
         display : {
+            background : [0.02, 0.02, 0.1],
             body       : true,
             field      : true,
-            saturation : Range(0.5, 0, 1, 0.01)
+            saturation : new Range(0.5, 0, 1, 0.01),
+            palette    : Source()
         },
         force : {
-            // size in pixels
-            range    : Range(125, 0, 250),
-            strength : Range(75, 0, 100),
-            // decay power
-            decay    : Range(1, 0, 3, 0.1),
-            zero     : Range(0.01, 0, 0.8, 0.01)
+            range    : new Range(100, 0, 150),
+            strength : new Range(0.75, 0, 1, 0.05),
+            decay    : new Range(1, 0, 3, 0.1),
+            zero     : new Range(0.01, 0.01, 0.8, 0.01),
+            max      : 100
+        },
+        runtime : {
+            frame    : 0,
+            time     : 0,
+            dt       : Source(),
+            viewport : Source(),
+            ui       : Source(),
+            forces   : Source(),
+            palette  : Palette(),
+            freeze   : false,
+            force    : new Range(0, 0, 100, 1),
+            mouse    : null
         },
         log : {
             debug : false,
-            info : false
-        },
-        run : {
-            max_force : 100
+            info  : false
         }
     };
 
@@ -61,69 +107,27 @@ window.addEventListener('load', async () => {
         preserveDrawingBuffer : false
     });
 
-    const wgl = WGL(gl, {extensions : ['EXT_color_buffer_float', 'EXT_color_buffer_half_float', 'EXT_float_blend']});
+    if (gl === null) {
+        window.alert('WebGL 2 not supported, abort');
+        return;
+    }
 
-    const SOURCE = {
-        VIEWPORT_SIZE        : {},
-        BODY_SIZE            : {},
-        FORCE_RANGE          : {},
-        FORCE_DECAY          : {},
-        FORCE_ZERO           : {},
-        FORCE_STRENGTH       : {},
-        SIMULATION_DAMPING   : {},
-        SIMULATION_NSPECIES  : {},
-        SIMULATION_VELOCITY  : {},
-        SIMULATION_GRAVITY   : {},
-        SIMULATION_RANDOM    : {},
-        SIMULATION_FORCES    : {manual : true},
-        SIMULATION_DT        : {manual : true},
-        DISPLAY_SATURATION   : {},
-        DISPLAY_PALETTE      : {manual : true}
-    };
+    const extensions = ['EXT_color_buffer_float', 'EXT_float_blend'];
+    const wgl = WGL(gl, {extensions : extensions});
+    if (Object.keys(wgl.extensions).length !== extensions.length) {
+        window.alert(`Extension(s) not supported (${extensions.filter(e => !(e in wgl.extensions))}), may not work correctly`);
+    }
 
-    const source = (() => {
-        const sources = new Map();
-        const source = (... args) => {
-            if (args.length > 2) {
-                const [id, material, uniform, update] = [... args];
-                if (!sources.has(id)) {sources.set(id, []);}
-                sources.get(id).push({material, uniform, update});
-            } else if (args.length > 0) {
-                const id = args[0];
-                const v = id.manual ? args[1]
-                        : (id === SOURCE.VIEWPORT_SIZE      ) ? [canvas.width, canvas.height]
-                        : (id === SOURCE.BODY_SIZE          ) ? settings.body.size.value
-                        : (id === SOURCE.FORCE_RANGE        ) ? settings.force.range.value
-                        : (id === SOURCE.FORCE_DECAY        ) ? settings.force.decay.value
-                        : (id === SOURCE.FORCE_ZERO         ) ? settings.force.zero.value
-                        : (id === SOURCE.FORCE_STRENGTH     ) ? settings.force.strength.value
-                        : (id === SOURCE.SIMULATION_VELOCITY) ? settings.simulation.velocity.value
-                        : (id === SOURCE.SIMULATION_GRAVITY ) ? settings.simulation.gravity.value
-                        : (id === SOURCE.SIMULATION_DAMPING ) ? settings.simulation.damping.value
-                        : (id === SOURCE.SIMULATION_NSPECIES) ? settings.simulation.nspecies.value
-                        : (id === SOURCE.SIMULATION_RANDOM  ) ? Math.random()
-                        : (id === SOURCE.DISPLAY_SATURATION ) ? settings.display.saturation.value
-                        : null;
-                if (v === null) {
-                    throw "invalid source";
-                }
-                if (sources.has(id)) {
-                    for (const s of sources.get(id)) {
-                        const u = (s.update !== undefined) ? s.update(v) : v;
-                        if (u !== undefined) {
-                            s.material.uniform(s.uniform, u);
-                        }
-                    }
-                }
-            } else {
-                for (const id of Object.values(SOURCE)) {
-                    source(id);
-                }
+    function source_uniform(src, material, uniform, map) {
+        src.addListener((v) => {
+            if (map !== undefined) {
+                v = map(v);
             }
-        }
-        return source;
-    })();
+            material.uniform(uniform, v);
+        });
+    }
 
+    // field frame buffer
     const field = {
         fb : gl.createFramebuffer(),
         textures : []
@@ -143,6 +147,21 @@ window.addEventListener('load', async () => {
     const material = {};
     {
         const src = {
+            vertex        : await fetch('shaders/rectangle-vs.glsl').then(r => r.text()),
+            fragment      : await fetch('shaders/rectangle-fs.glsl').then(r => r.text()),
+            fragment_fade : await fetch('shaders/fade-fs.glsl').then(r => r.text())
+        };
+        material.rectangle = wgl.material(wgl.program(
+            wgl.shader.vertex(src.vertex),
+            wgl.shader.fragment(src.fragment)
+        ));
+        material.rectangle_fade = wgl.material(wgl.program(
+            wgl.shader.vertex(src.vertex, ['TEXTURE']),
+            wgl.shader.fragment(src.fragment_fade)
+        ));
+    }
+    {
+        const src = {
             vertex   : await fetch('shaders/draw_body-vs.glsl').then(r => r.text()),
             fragment : await fetch('shaders/draw_body-fs.glsl').then(r => r.text())
         };
@@ -150,17 +169,17 @@ window.addEventListener('load', async () => {
             wgl.shader.vertex(src.vertex, [`MAX_SPECIES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
             wgl.shader.fragment(src.fragment, ['AA=2.0'])
         ));
-        source(SOURCE.BODY_SIZE, material.draw_body, 'u_size');
-        source(SOURCE.DISPLAY_PALETTE, material.draw_body, 'u_palette');
         material.draw_body_point = wgl.material(wgl.program(
             wgl.shader.vertex(src.vertex, [`MAX_SPECIES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
             wgl.shader.fragment(src.fragment, ['POINT'])
         ));
-        source(SOURCE.BODY_SIZE, material.draw_body_point, 'u_size');
-        source(SOURCE.DISPLAY_PALETTE, material.draw_body_point, 'u_palette');
+        for (const m of [material.draw_body, material.draw_body]) {
+            source_uniform(settings.body.size, m, 'u_size');
+            settings.display.palette.addListener(cs => m.uniform('u_palette', cs));
+        }
     }
-    // TODO : check how significantly perfs increase with 2 shaders (2/4 species) rather than just 1 (4 species)
     {
+        // TODO : check how significantly would perfs increase with 2 shaders (2/4 species) rather than just 1 (4 species)
         const src = {
             vertex   : await fetch('shaders/update_field-vs.glsl').then(r => r.text()),
             fragment : await fetch('shaders/update_field-fs.glsl').then(r => r.text())
@@ -169,12 +188,13 @@ window.addEventListener('load', async () => {
             wgl.shader.vertex(src.vertex, [`MAX_SPECIES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
             wgl.shader.fragment(src.fragment, [`MAX_SPECIES=${settings.simulation.nspecies.max}`,])
         ));
-        source(
-            SOURCE.FORCE_RANGE, material.update_field, 'u_range',
+        source_uniform
+        (
+            settings.force.range, material.update_field, 'u_range',
             r => r * (1.0 / (2 ** (settings.simulation.resolution.max - settings.simulation.resolution.value)))
         );
-        source(SOURCE.FORCE_DECAY, material.update_field, 'u_decay');
-        source(SOURCE.FORCE_ZERO , material.update_field, 'u_zero');
+        source_uniform(settings.force.decay, material.update_field, 'u_decay');
+        source_uniform(settings.force.zero, material.update_field, 'u_zero');
     }
     {
         const src = {
@@ -182,27 +202,27 @@ window.addEventListener('load', async () => {
             reset_vertex  : await fetch('shaders/reset_dynamics-vs.glsl').then(r => r.text()),
             fragment      : await fetch('shaders/update_dynamics-fs.glsl').then(r => r.text())
         };
-        material.update_dynamics = wgl.material(
+        material.update_dynamics_bounce = wgl.material(
             wgl.program(
                 wgl.shader.vertex(src.update_vertex, [
                     `MAX_SPECIES=${settings.simulation.nspecies.max}`,
                     'MAX_VELOCITY',
                     'NORMALIZE',
                     // 'NOISE',
-                    'BORDER=BOUNCE_HARD'
+                    'BORDER=BORDER_BOUNCE_SOFT'
                 ]),
                 wgl.shader.fragment(src.fragment),
                 ['v_position', 'v_velocity', 'v_acceleration']
             )
         );
-        material.update_dynamics_soft = wgl.material(
+        material.update_dynamics_wrap = wgl.material(
             wgl.program(
                 wgl.shader.vertex(src.update_vertex, [
                     `MAX_SPECIES=${settings.simulation.nspecies.max}`,
                     'MAX_VELOCITY',
                     'NORMALIZE',
                     // 'NOISE',
-                    'BORDER=BOUNCE_SOFT'
+                    'BORDER=BORDER_WRAP'
                 ]),
                 wgl.shader.fragment(src.fragment),
                 ['v_position', 'v_velocity', 'v_acceleration']
@@ -215,26 +235,24 @@ window.addEventListener('load', async () => {
                 ['v_position', 'v_velocity', 'v_acceleration']
             )
         );
-        for (const m of [material.update_dynamics, material.update_dynamics_soft]) {
-            gl.useProgram(m.program);
-            {
-                let a = 0;
-                m.uniform('u_field01', a++);
-                if (settings.simulation.nspecies.max > 2) {
-                    m.uniform('u_field23', a++);
-                }
+        for (const m of [material.update_dynamics_bounce, material.update_dynamics_wrap]) {
+            let a = 0;
+            m.uniform('u_field01', a++);
+            if (settings.simulation.nspecies.max > 2) {
+                m.uniform('u_field23', a++);
             }
-            source(SOURCE.FORCE_STRENGTH, m, 'u_strength');
-            source(SOURCE.SIMULATION_DAMPING, m, 'u_damping');
-            source(SOURCE.SIMULATION_DT, m, 'u_dt');
-            source(SOURCE.SIMULATION_FORCES, m, 'u_forces');
-            source(SOURCE.SIMULATION_VELOCITY, m, 'u_max_velocity');
-            source(SOURCE.SIMULATION_GRAVITY, m, 'u_gravity', g => [0, -(g * settings.force.range.max)]);
+            m.uniform('u_strength', settings.force.max);
+            source_uniform(settings.force.strength, m, 'u_factor');
+            source_uniform(settings.simulation.damping, m, 'u_damping');
+            source_uniform(settings.simulation.velocity, m, 'u_max_velocity');
+            source_uniform(settings.simulation.gravity, m, 'u_gravity', g => [0, -(g * settings.force.range.max)]);
+            settings.runtime.dt.addListener(dt => m.uniform('u_dt', dt));
+            settings.runtime.forces.addListener(fs => m.uniform('u_forces', fs));
         }
-        source(SOURCE.VIEWPORT_SIZE, material.reset_dynamics, 'u_size', (wh) => [(wh[0] / 2), (wh[1] / 2)]);
-        source(SOURCE.SIMULATION_VELOCITY, material.reset_dynamics, 'u_velocity');
-        source(SOURCE.SIMULATION_RANDOM, material.reset_dynamics, 'u_seed', r => Math.round(r * 0xffffff));
         material.reset_dynamics.uniform('u_position', 1);
+        source_uniform(settings.simulation.velocity, material.reset_dynamics, 'u_velocity');
+        source_uniform(settings.simulation.random, material.reset_dynamics, 'u_seed', r => Math.round(r * 0xffffff));
+        settings.runtime.viewport.addListener((w, h) => {material.reset_dynamics.uniform('u_size', [(w / 2), (h / 2)]);});
     }
     {
         const src = {
@@ -246,35 +264,37 @@ window.addEventListener('load', async () => {
             wgl.shader.fragment(src.fragment, [`MAX_SPECIES=${settings.simulation.nspecies.max}`])
         ));
         material.draw_field.uniform('u_size', [1.0, 1.0]);
-        material.draw_field.uniform('u_offset', [0.0, 0.0]);
         material.draw_field.uniform('u_field01', 0);
         if (settings.simulation.nspecies.max > 2) {
             material.draw_field.uniform('u_field23', 1);
         }
-        source(
-            SOURCE.DISPLAY_SATURATION, material.draw_field,
-            'u_saturation', s => s ** Math.log10(settings.simulation.nbodies.value * (2 ** settings.simulation.crazy.value))
+        source_uniform
+        (
+            settings.display.saturation,
+            material.draw_field, 'u_saturation',
+            s => s ** Math.log10(settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value))
         );
-        source(SOURCE.DISPLAY_PALETTE, material.draw_field, 'u_palette');
+        settings.display.palette.addListener(cs => material.draw_field.uniform('u_palette', cs));
     }
 
     for (const m of [
         material.update_field,
-        material.update_dynamics,
-        material.update_dynamics_soft,
+        material.update_dynamics_bounce,
+        material.update_dynamics_wrap,
         material.draw_body,
         material.draw_body_point
     ]) {
-        source(SOURCE.VIEWPORT_SIZE, m, 'u_scale', (wh) => [2.0 / wh[0], 2.0 / wh[1]]);
-        source(SOURCE.SIMULATION_NSPECIES, m, 'u_nspecies');
+        source_uniform(settings.simulation.nspecies, m, 'u_nspecies');
+        settings.runtime.viewport.addListener((w, h) => {m.uniform('u_scale', [2.0 / w, 2.0 / h]);});
     }
 
+    // vertex buffers
     const vbo = {
         dynamics : [gl.createBuffer(), gl.createBuffer()]
     };
 
     function body() {
-        const d = new Float32Array(settings.simulation.nbodies.max * (2 ** settings.simulation.crazy.value) * 24);
+        const d = new Float32Array(settings.simulation.nbodies.max * (2 ** settings.simulation.grow.value) * 24);
         for (const v of vbo.dynamics) {
             gl.bindBuffer(gl.ARRAY_BUFFER, v);
             gl.bufferData(gl.ARRAY_BUFFER, d, gl.STREAM_DRAW);
@@ -304,7 +324,7 @@ window.addEventListener('load', async () => {
 
         gl.bindVertexArray(r.update);
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo.dynamics[i]);
-        for (const m of [material.update_dynamics, material.update_dynamics_soft]) {
+        for (const m of [material.update_dynamics_bounce, material.update_dynamics_wrap]) {
             m.attribute('a_position'    , {stride : 24, offset : 0});
             m.attribute('a_velocity'    , {stride : 24, offset : 8});
             // m.attribute('a_acceleration', {stride : 24, offset : 16});
@@ -335,12 +355,12 @@ window.addEventListener('load', async () => {
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
-        source(SOURCE.VIEWPORT_SIZE);
+        settings.runtime.viewport.notify(w, h);
     };
 
     function palette() {
-        const cs = run.palette(settings.simulation.nspecies.max).map(c => [... c, 1.0]).flat();
-        source(SOURCE.DISPLAY_PALETTE, cs);
+        const cs = settings.runtime.palette(settings.simulation.nspecies.max).map(c => [... c, 1.0]).flat();
+        settings.display.palette.notify(cs);
     }
 
     // TODO : ensure more variety
@@ -351,16 +371,21 @@ window.addEventListener('load', async () => {
                 fs.push(Math.random() * 0.5 + ((a === b) ? 0 : 0.5));
             }
         }
-        source(SOURCE.SIMULATION_FORCES, fs);
+        settings.runtime.forces.notify(fs);
         if (settings.log.info) {
             console.info('### forces', JSON.stringify(fs));
         }
+        return fs;
     }
 
     function update_dynamics(render, reset = false) {
-        const [bs, p]  = reset ? [settings.simulation.nbodies.max  , material.reset_dynamics.program]
-                               : [settings.simulation.nbodies.value, run.update.program];
-        gl.useProgram(p);
+        const [bs, m]  = reset ? [settings.simulation.nbodies.max  , material.reset_dynamics]
+                               : [
+                                     settings.simulation.nbodies.value,
+                                     (settings.simulation.border === 'bounce') ? material.update_dynamics_bounce :
+                                                                                 material.update_dynamics_wrap
+                                 ];
+        gl.useProgram(m.program);
         {
             let a = 0;
             gl.activeTexture(gl.TEXTURE0 + a++);
@@ -377,7 +402,7 @@ window.addEventListener('load', async () => {
         gl.enable(gl.RASTERIZER_DISCARD);
         gl.beginTransformFeedback(gl.POINTS);
         gl.disable(gl.BLEND);
-        gl.drawArrays(gl.POINTS, 0, bs * (2 ** settings.simulation.crazy.value));
+        gl.drawArrays(gl.POINTS, 0, bs * (2 ** settings.simulation.grow.value));
         gl.endTransformFeedback();
         gl.disable(gl.RASTERIZER_DISCARD);
         gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null);
@@ -389,27 +414,38 @@ window.addEventListener('load', async () => {
         reset_field();
     }
 
-    function update_field(render, clear = false) {
+    function update_field(render, reset = false) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, field.fb);
         {
             const r = (1.0 / (2 ** (settings.simulation.resolution.max - settings.simulation.resolution.value)));
             gl.viewport(0, 0, gl.canvas.width * r, gl.canvas.height * r);
         }
-        gl.drawBuffers([gl.COLOR_ATTACHMENT0, (clear || (settings.simulation.nspecies.value > 2)) ? gl.COLOR_ATTACHMENT1 : gl.NONE]);
+        gl.drawBuffers([gl.COLOR_ATTACHMENT0, (reset || (settings.simulation.nspecies.value > 2)) ? gl.COLOR_ATTACHMENT1 : gl.NONE]);
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
-        if (!clear) {
+
+        function draw(x, y) {
             gl.bindVertexArray(render.display);
             gl.useProgram(material.update_field.program);
             gl.enable(gl.BLEND);
             gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
             gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ONE, gl.ONE);
-            gl.drawArrays(gl.POINTS, 0, settings.simulation.nbodies.value * (2 ** settings.simulation.crazy.value));
+            material.update_field.uniform('u_offset', [x, y]);
+            gl.drawArrays(gl.POINTS, 0, settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value));
             gl.bindVertexArray(null);
-            if (run.force !== null) {
-                gl.vertexAttrib2f(material.update_field.attribute('a_position'), run.force.x, run.force.y);
-                gl.useProgram(material.update_field.program);
-                gl.drawArrays(gl.POINTS, 0, run.force.n);
+            if (settings.runtime.mouse !== null) {
+                gl.vertexAttrib2f(material.update_field.attribute('a_position'), settings.runtime.mouse.x, settings.runtime.mouse.y);
+                gl.drawArrays(gl.POINTS, 0, settings.runtime.force.value);
+            }
+        }
+
+        if (!reset) {
+            if (settings.simulation.border === 'wrap') {
+                for (const xy of combine([-2, 0, 2], [-2, 0, 2])) {
+                    draw(xy[0], xy[1]);
+                }
+            } else {
+                draw(0, 0);
             }
         }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -421,7 +457,7 @@ window.addEventListener('load', async () => {
 
     function draw(render) {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        gl.clearColor(... settings.background, 0);
+        gl.clearColor(... settings.display.background, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         if (settings.display.field) {
@@ -438,7 +474,6 @@ window.addEventListener('load', async () => {
             gl.blendEquation(gl.FUNC_ADD);
             gl.blendEquationSeparate(gl.FUNC_ADD, gl.FUNC_ADD);
             gl.blendFuncSeparate(gl.ONE, gl.ONE, gl.ZERO, gl.ONE);
-            //gl.blendFuncSeparate(gl.ONE_MINUS_DST_ALPHA, gl.ONE, gl.ONE, gl.ONE);
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
             gl.bindTexture(gl.TEXTURE_2D, null);
 
@@ -455,23 +490,47 @@ window.addEventListener('load', async () => {
             gl.enable(gl.BLEND);
             gl.blendEquation(gl.FUNC_ADD);
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-            gl.drawArrays(gl.POINTS, 0, settings.simulation.nbodies.value * (2 ** settings.simulation.crazy.value));
+            gl.drawArrays(gl.POINTS, 0, settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value));
             gl.bindVertexArray(null);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        }
+
+        // draw a fadding border so that bodies do not pop in/out
+        if (settings.simulation.border === 'wrap') {
+            const [w, h] = [settings.body.size.value / canvas.width, settings.body.size.value / canvas.height];
+
+            gl.enable(gl.BLEND);
+            gl.blendEquation(gl.FUNC_ADD);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.useProgram(material.rectangle_fade.program);
+
+            material.rectangle_fade.uniform('u_color', [... settings.display.background, 1]);
+
+            for (const [s, xy, fx, fy] of [
+                [[w, 1], [1 - w, 0], [1, 0], [0, 0]],
+                [[w, 1], [w - 1, 0], [0, 1], [0, 0]],
+                [[1, h], [0, 1 - h], [0, 0], [1, 0]],
+                [[1, h], [0, h - 1], [0, 0], [0, 1]]
+            ]) {
+                material.rectangle_fade.uniform('u_size', s);
+                material.rectangle_fade.uniform('u_offset', xy);
+                material.rectangle_fade.uniform('u_fade_x', fx);
+                material.rectangle_fade.uniform('u_fade_y', fy);
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);    
+            }
         }
     }
 
     function update(dt) {
-        const r = render[run.frame & 1];
+        const r = render[settings.runtime.frame & 1];
 
         gl.disable(gl.DEPTH_TEST);
         gl.colorMask(true, true, true, true);
         gl.depthMask(false);
 
-        source(SOURCE.SIMULATION_DT, dt);
-
-        if ((run.force !== null) && (run.force.n < settings.run.max_force)) {
-            ++run.force.n;
+        settings.runtime.dt.notify(dt);
+        if (settings.runtime.mouse !== null) {
+            ++settings.runtime.force.value;
         }
 
         update_field(r);
@@ -480,7 +539,7 @@ window.addEventListener('load', async () => {
     }
 
     //
-    // build ui (boring...)
+    // build ui (boring, and quite ugly)
     //
 
     function hex_rgb(c) {
@@ -506,14 +565,10 @@ window.addEventListener('load', async () => {
         panel.style.gap = '5px';
         ui.appendChild(panel);
 
-        const deps = {};
-        const update_deps = () => {
-            deps.saturation.disabled = !deps.draw_field.checked;
-            deps.info();
-        };
-
         const Range = (r, u, cb = 'input', s) => {
             const span = document.createElement('span');
+            span.style.display = 'flex';
+            span.style.flexDirection = 'column';
             const range = document.createElement('input');
             range.type  = 'range';
             range.min = r.min;
@@ -527,7 +582,7 @@ window.addEventListener('load', async () => {
             span.appendChild(range);
             span.appendChild(info);
             const sync = () => {
-                let t = range.value.toString();
+                let t = range.value;
                 if (s !== undefined) {
                     t = s(t);
                 }
@@ -553,7 +608,6 @@ window.addEventListener('load', async () => {
                 if (element !== undefined) {
                     label.style.gridRow = nrs;
                     label.style.gridColumn = 1;
-                    //label.style.fontSize = 'small';
                     element.style.gridRow = nrs;
                     element.style.gridColumn = 2;
                     panel.appendChild(element);
@@ -575,84 +629,77 @@ window.addEventListener('load', async () => {
                 reset_field();
             }
             settings.simulation.nspecies.value = parseInt(v);
-            source(SOURCE.SIMULATION_NSPECIES);
         }, 'change'));
         {
-            const s = Range(settings.simulation.nbodies, (v) => {
+            const i = row('Bodies', Range(settings.simulation.nbodies, (v) => {
                 settings.simulation.nbodies.value = parseInt(v);
-            }, 'input', v => `${parseInt(v) * (2 ** settings.simulation.crazy.value)}`);
-            const i = s.children[1];
-            deps.info = () => {
-                i.innerHTML = `${settings.simulation.nbodies.value * (2 ** settings.simulation.crazy.value)}`;
-            };
-            row('Bodies', s);
+            }, 'input', v => `${parseInt(v) * (2 ** settings.simulation.grow.value)}`)).children[1];
+            settings.runtime.ui.addListener((e) => {
+                if (e === 'grow') {
+                    i.innerHTML = `${settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value)}`;
+                }
+            });
         }
         row('Velocity', Range(settings.simulation.velocity, (v) => {
             settings.simulation.velocity.value = parseFloat(v);
-            source(SOURCE.SIMULATION_VELOCITY);
         }));
         row('Gravity', Range(settings.simulation.gravity, (v) => {
             settings.simulation.gravity.value = parseFloat(v);
-            source(SOURCE.SIMULATION_GRAVITY);
         }));
         row('Damping', Range(settings.simulation.damping, (v) => {
             settings.simulation.damping.value = parseFloat(v);
-            source(SOURCE.SIMULATION_DAMPING);
         }));
+        row('Grow', Range(settings.simulation.grow, (v) => {
+            settings.simulation.grow.value = parseInt(v);
+            body();
+            settings.runtime.ui.notify('grow', settings.simulation.grow.value);
+        }, 'change'));
         {
             const select = document.createElement('select');
-            for (const m of ['Bounce hard', 'Bounce soft']) {
+            for (const m of ['Bounce', 'Wrap']) {
                 const option = document.createElement('option');
                 option.appendChild(document.createTextNode(m));
                 select.appendChild(option);
             }
             select.addEventListener('change', () => {
                 switch (select.selectedIndex) {
-                    case 0 : run.update = material.update_dynamics; break;
-                    case 1 : run.update = material.update_dynamics_soft; break;
+                    case 0 : settings.simulation.border = 'bounce'; break;
+                    case 1 : settings.simulation.border = 'wrap'; break;
                 }
             });
             row('Border', select);
         }
-        row('Go crazy', Range(settings.simulation.crazy, (v) => {
-            settings.simulation.crazy.value = parseInt(v);
-            body();
-            update_deps();
-        }, 'change'));
         row('Body');
         row('Size', Range(settings.body.size, (v) => {
             settings.body.size.value = parseFloat(v);
-            source(SOURCE.BODY_SIZE);
         }));
         row('Force');
         row('Factor', Range(settings.force.strength, (v) => {
             settings.force.strength.value = parseFloat(v);
-            source(SOURCE.FORCE_STRENGTH);
         }));
         row('Range', Range(settings.force.range, (v) => {
             settings.force.range.value = parseFloat(v);
-            source(SOURCE.FORCE_RANGE);
         }));
         row('Decay', Range(settings.force.decay, (v) => {
             settings.force.decay.value = parseFloat(v);
-            source(SOURCE.FORCE_DECAY);
         }));
-        row('Zero', Range(settings.force.zero, (v) => {
-            settings.force.zero.value = parseFloat(v);
-            source(SOURCE.FORCE_ZERO);
-        }));
-        row('Resolution', Range({value : 1, min : 0, max : 4, step : 1}, (v) => {
+        if (ENABLE_UI_ZERO) {
+            row('Zero', Range(settings.force.zero, (v) => {
+                settings.force.zero.value = parseFloat(v);
+            }));
+        }
+        row('Resolution', Range(settings.simulation.resolution, (v) => {
             settings.simulation.resolution.value = parseInt(v);
             resize();
-            source(SOURCE.FORCE_RANGE);
-        }));
+            settings.force.range.notify();
+        }, 'change'));
         row('Display');
         {
             const cs = document.createElement('input');
             cs.type = 'color';
-            cs.value = rgb_hex(settings.background);
+            cs.value = rgb_hex(settings.display.background);
             cs.addEventListener('input', () => {
-                settings.background = hex_rgb(cs.value);
+                settings.display.background = hex_rgb(cs.value);
             });
             row('Back', cs);
         }
@@ -674,18 +721,21 @@ window.addEventListener('load', async () => {
                 div.appendChild(label);
                 cb.addEventListener('input', () => {
                     settings.display[s] = cb.checked;
-                    update_deps();
+                    settings.runtime.ui.notify(`show_${s}`, cb.checked);
                 });
-                if (s == 'field') {
-                    deps.draw_field = cb;
-                }
             }
             row('Draw', div);
         }
-        deps.saturation = row('Saturation', Range(settings.display.saturation, (v) => {
-            settings.display.saturation.value = parseFloat(v);
-            source(SOURCE.DISPLAY_SATURATION);
-        }));
+        {
+            const r = row('Saturation', Range(settings.display.saturation, (v) => {
+                settings.display.saturation.value = parseFloat(v);
+            })).children[0];
+                settings.runtime.ui.addListener((e, v) => {
+                if (e === 'show_field') {
+                    r.disabled = !v;
+                }
+            });
+        }
         {
             const s = document.createElement('div');
             s.style.flexGrow = 1;
@@ -700,12 +750,13 @@ window.addEventListener('load', async () => {
             ui.appendChild(ul);
             for (const i of [
                 'F : randomize force',
-                'C : change palette',
+                'P : randomize palette',
                 'R : reset random',
                 'B : reset big bang',
                 'Click : apply force',
                 'Space : freeze time',
-                'Escape : show/hide settings'
+                'E : toggle force editor',
+                'Escape : toggle settings'
             ]) {
                 const li = document.createElement('div');
                 li.style.margin = 0;
@@ -713,6 +764,97 @@ window.addEventListener('load', async () => {
                 ul.appendChild(li);
             }
         }
+    }
+
+    const edit_force = document.createElement('div');
+    {
+        edit_force.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+        edit_force.style.display = 'none';
+        edit_force.style.position = 'absolute';
+        edit_force.style.zIndex = 1;
+        edit_force.style.top = '25px';
+        edit_force.style.left = '25px';
+        const matrix = document.createElement('div');
+        matrix.style.display = 'grid';
+        matrix.style.padding = '5px';
+        const ranges = [];
+        let forces = [];
+        let colors = [];
+        for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
+            const c = document.createElement('span');
+            c.style.display = 'inline-block';
+            c.style.width  = '15px';
+            c.style.height = '100%';
+            c.style.marginRight = '5px';
+            c.style.gridRow = a + 1;
+            c.style.gridColumn = 1;
+            matrix.appendChild(c);
+            colors.push(c);
+        }
+        for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
+            for (let b = 0; b < settings.simulation.nspecies.max; ++b) {
+                const container = document.createElement('span');
+                container.style.display = 'flex';
+                container.style.flexDirection = 'column';
+                container.style.gridRow = a + 1;
+                container.style.gridColumn = b + 2;
+                const range = document.createElement('input');
+                range.type = 'range';
+                const f = a * settings.simulation.nspecies.max + b;
+                range.min = ENABLE_NEGATIVE_FORCE ? -1 : 0;
+                range.max = 1;
+                range.step = 0.05;
+                range.value = range.min;
+                const info = document.createElement('span');
+                info.style.fontSize = 'x-small';
+                range.addEventListener('input', () => {
+                    info.innerHTML = range.value;
+                    forces[f] = parseFloat(range.value);
+                    settings.runtime.forces.notify(forces);
+                });
+                container.appendChild(range);
+                container.appendChild(info);
+                matrix.appendChild(container);
+                ranges.push({container, range, info});
+            }
+        }
+        edit_force.appendChild(matrix);
+
+        const show = () => {
+            for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
+                for (let b = 0; b < settings.simulation.nspecies.max; ++b) {
+                    const v = (a < settings.simulation.nspecies.value) && (b < settings.simulation.nspecies.value);
+                    const f = a * settings.simulation.nspecies.max + b;
+                    ranges[f].container.style.display = v ? 'flex' : 'none';
+                }
+            }
+            for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
+                colors[a].style.display = (a < settings.simulation.nspecies.value) ? 'inline-block' : 'none';
+            }
+        };
+        const reset_force = (fs) => {
+            forces = [].concat(fs);
+            for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
+                for (let b = 0; b < settings.simulation.nspecies.max; ++b) {
+                    const f = a * settings.simulation.nspecies.max + b;
+                    ranges[f].range.value = fs[f];
+                    ranges[f].info.innerHTML = ranges[f].range.value;
+                }
+            }
+        };
+        const reset_palette = (cs) => {
+            for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
+                colors[a].style.backgroundColor = rgb_hex([cs[a * 4 + 0], cs[a * 4 + 1], cs[a * 4 + 2]]);
+            }
+        };
+        settings.simulation.nspecies.addListener(show);
+        settings.runtime.forces.addListener(reset_force);
+        settings.display.palette.addListener(reset_palette);
+        show();
+
+
+        document.body.appendChild(edit_force);
+        //canvas.appendChild(edit_force);
     }
 
     //
@@ -725,18 +867,21 @@ window.addEventListener('load', async () => {
                 const ui = document.getElementById('ui');
                 ui.style.display = (ui.style.display === 'none') ? 'flex' : 'none';
             } else if (e.key === ' ') {
-                run.freeze = !run.freeze;
-            } else if (e.key.toUpperCase() === 'C') {
+                settings.runtime.freeze = !settings.runtime.freeze;
+            } else if (e.key.toUpperCase() === 'P') {
                 palette();
             } else if (e.key.toUpperCase() === 'F') {
                 force();
+                settings.runtime.ui.notify('force');
             } else if (e.key.toUpperCase() === 'R') {
-                source(SOURCE.SIMULATION_RANDOM);
+                settings.simulation.random.notify(Math.random());
                 material.reset_dynamics.uniform('u_position', 1);
                 reset_dynamics();
             } else if (e.key.toUpperCase() === 'B') {
                 material.reset_dynamics.uniform('u_position', 0);
                 reset_dynamics();
+            } else if (e.key.toUpperCase() === 'E') {
+                edit_force.style.display = (edit_force.style.display === 'none') ? 'block' : 'none';
             } else if (e.key.toUpperCase() === 'D') {
                 settings.log.debug = !settings.log.debug;
             } else if (e.key.toUpperCase() === 'I') {
@@ -746,20 +891,29 @@ window.addEventListener('load', async () => {
     };
 
     canvas.addEventListener('mousedown', e => {
-        run.force = {x : e.x - (canvas.width / 2), y : (canvas.height / 2) - e.y, n : 1};
+        settings.runtime.mouse = {
+            x : e.x - (canvas.width / 2),
+            y : (canvas.height / 2) - e.y
+        };
+        settings.runtime.force.value = 0;
     });
     canvas.addEventListener('mousemove', e => {
-        if (run.force !== null) {
-            run.force.x = e.x - (canvas.width / 2);
-            run.force.y = (canvas.height / 2) - e.y;
+        if (settings.runtime.mouse !== null) {
+            settings.runtime.mouse.x = e.x - (canvas.width / 2);
+            settings.runtime.mouse.y = (canvas.height / 2) - e.y;
         }
     });
     canvas.addEventListener('mouseup', e => {
-        run.force = null;
+        settings.runtime.mouse = null;
     });
 
+    // TODO
+    // canvas.addEventListener("touchstart", () => {});
+    // canvas.addEventListener("touchmove", () => {});
+    // canvas.addEventListener("touchend", () => {});
+
     wgl.addObserver(wgl.EVENT.VISIBILITY, v => {
-        run.time = 0;
+        settings.runtime.time = 0;
     });
 
     wgl.addObserver(wgl.EVENT.RESIZE, (w, h) => {
@@ -778,10 +932,10 @@ window.addEventListener('load', async () => {
             fps.get();
         }
         const t = Date.now();
-        const dt = (run.freeze || (run.time === 0)) ? 0 : (t - run.time) / 1000.0;
+        const dt = (settings.runtime.freeze || (settings.runtime.time === 0)) ? 0 : (t - settings.runtime.time) / 1000.0;
         update(dt);
-        run.time = t;
-        ++run.frame;
+        settings.runtime.time = t;
+        ++settings.runtime.frame;
     }
 
     function loop() {
@@ -789,18 +943,8 @@ window.addEventListener('load', async () => {
         window.requestAnimationFrame(loop);
     }
 
-    const run = {
-        frame   : 0,
-        time    : 0,
-        freeze  : false,
-        palette : Palette(),
-        update  : material.update_dynamics,
-        force   : null
-    };
-
     force();
     palette();
-    source();
     resize();
     body();
 

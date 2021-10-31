@@ -31,6 +31,8 @@ uint hash(uint s)
 
 #endif
 
+const float EPSILON = 0.000000001f;
+
 void main()
 {
     vec2 position = vec2(0.0);
@@ -43,12 +45,12 @@ void main()
     int seed = 0;
 #endif
     {
-        uvec2 r = uvec2(hash(uint(gl_VertexID + seed)), hash(uint(gl_VertexID * 2 + seed + 1)));
+        uvec2 r = uvec2(hash(uint(gl_VertexID + seed)), hash(uint(gl_VertexID * 2 + seed)));
         position = vec2(float(r.x) / float(0xffffffffu), float(r.y) / float(0xffffffffu)) * 2.0 - vec2(1.0);
         position *= u_size * u_position;
     }
     {
-        uvec2 r = uvec2(hash(uint(gl_VertexID + seed)), hash(uint(gl_VertexID * 2 + seed + 1)));
+        uvec2 r = uvec2(hash(uint(gl_VertexID + seed + 1)), hash(uint(gl_VertexID * 2 + seed + 1)));
         velocity = vec2(float(r.x) / float(0xffffffffu), float(r.y) / float(0xffffffffu)) * 2.0 - vec2(1.0);
         velocity *= u_velocity;
     }
