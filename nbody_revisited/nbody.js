@@ -47,18 +47,18 @@ window.addEventListener('load', async () => {
 
     const settings = {
         simulation : {
-            nbodies    : new Range(2000, 1, 10000, 1),
-            nspecies   : new Range(2, 1, 4),
+            nbodies    : new Range(5000, 1, 10000, 1),
+            nspecies   : new Range(3, 1, 4),
             grow       : new Range(0, 0, 7, 1),
-            damping    : new Range(0.002, 0.0, 0.05, 0.0005),
+            damping    : new Range(0.2, 0, 1, 0.1),
             velocity   : new Range(100, 10, 500),
             gravity    : new Range(0, 0, 0.5, 0.05),
             resolution : new Range(0, 0, 4),
-            border     : 'bounce',
+            border     : 'wrap',
             random     : Source()
         },
         body : {
-            size : new Range(15, 1, 100)
+            size : new Range(10, 1, 50)
         },
         display : {
             background : [0.02, 0.02, 0.1],
@@ -68,7 +68,7 @@ window.addEventListener('load', async () => {
             palette    : Source()
         },
         force : {
-            range    : new Range(100, 0, 150),
+            range    : new Range(75, 0, 150),
             strength : new Range(0.75, 0, 1, 0.05),
             decay    : new Range(1, 0, 3, 0.1),
             zero     : new Range(0.01, 0.01, 0.8, 0.01),
@@ -119,11 +119,12 @@ window.addEventListener('load', async () => {
     }
 
     function source_uniform(src, material, uniform, map) {
-        src.addListener((v) => {
+        src.addListener((... v) => {
             if (map !== undefined) {
-                v = map(v);
+                material.uniform(uniform, map(... v));
+            } else {
+                material.uniform(uniform, ... v);
             }
-            material.uniform(uniform, v);
         });
     }
 
@@ -180,7 +181,7 @@ window.addEventListener('load', async () => {
         ));
         for (const m of [material.draw_body, material.draw_body_point]) {
             source_uniform(settings.body.size, m, 'u_size');
-            settings.display.palette.addListener(cs => m.uniform('u_palette', cs));
+            source_uniform(settings.display.palette, m, 'u_palette');
         }
     }
     {
@@ -251,13 +252,13 @@ window.addEventListener('load', async () => {
             source_uniform(settings.simulation.damping, m, 'u_damping');
             source_uniform(settings.simulation.velocity, m, 'u_max_velocity');
             source_uniform(settings.simulation.gravity, m, 'u_gravity', g => [0, -(g * settings.force.range.max)]);
-            settings.runtime.dt.addListener(dt => m.uniform('u_dt', dt));
-            settings.runtime.forces.addListener(fs => m.uniform('u_forces', fs));
+            source_uniform(settings.runtime.dt, m, 'u_dt');
+            source_uniform(settings.runtime.forces, m, 'u_forces');
         }
         material.reset_dynamics.uniform('u_position', 1);
         source_uniform(settings.simulation.velocity, material.reset_dynamics, 'u_velocity');
         source_uniform(settings.simulation.random, material.reset_dynamics, 'u_seed', r => Math.round(r * 0xffffff));
-        settings.runtime.viewport.addListener((w, h) => {material.reset_dynamics.uniform('u_size', [(w / 2), (h / 2)]);});
+        source_uniform(settings.runtime.viewport, material.reset_dynamics, 'u_size', (w, h) => [(w / 2), (h / 2)]);
     }
     {
         const src = {
@@ -279,7 +280,7 @@ window.addEventListener('load', async () => {
             material.draw_field, 'u_saturation',
             s => s ** Math.log10(settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value))
         );
-        settings.display.palette.addListener(cs => material.draw_field.uniform('u_palette', cs));
+        source_uniform(settings.display.palette, material.draw_field, 'u_palette');
     }
 
     for (const m of [
@@ -290,7 +291,7 @@ window.addEventListener('load', async () => {
         material.draw_body_point
     ]) {
         source_uniform(settings.simulation.nspecies, m, 'u_nspecies');
-        settings.runtime.viewport.addListener((w, h) => {m.uniform('u_scale', [2.0 / w, 2.0 / h]);});
+        source_uniform(settings.runtime.viewport, m, 'u_scale', (w, h) => [2.0 / w, 2.0 / h]);
     }
 
     // vertex buffers
@@ -368,12 +369,12 @@ window.addEventListener('load', async () => {
         settings.display.palette.notify(cs);
     }
 
-    // TODO : ensure more variety
     function force() {
         const fs = [];
         for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
+            const r = Math.random() * 0.4 + 0.1;
             for (let b = 0; b < settings.simulation.nspecies.max; ++b) {
-                fs.push(Math.random() * 0.5 + ((a === b) ? 0 : 0.5));
+                fs.push((a === b) ? r : r + Math.random() * (0.9 - r) + 0.1);
             }
         }
         settings.runtime.forces.notify(fs);
@@ -384,12 +385,10 @@ window.addEventListener('load', async () => {
     }
 
     function update_dynamics(render, reset = false) {
-        const [bs, m]  = reset ? [settings.simulation.nbodies.max  , material.reset_dynamics]
-                               : [
-                                     settings.simulation.nbodies.value,
-                                     (settings.simulation.border === 'bounce') ? material.update_dynamics_bounce :
-                                                                                 material.update_dynamics_wrap
-                                 ];
+        const bs = reset ? settings.simulation.nbodies.max : settings.simulation.nbodies.value;
+        const m = reset                                     ? material.reset_dynamics
+                : (settings.simulation.border === 'bounce') ? material.update_dynamics_bounce
+                :                                             material.update_dynamics_wrap;
         gl.useProgram(m.program);
         {
             let a = 0;
@@ -494,7 +493,7 @@ window.addEventListener('load', async () => {
             gl.useProgram(((settings.body.size.value > 4) ? material.draw_body :  material.draw_body_point).program);
             gl.enable(gl.BLEND);
             gl.blendEquation(gl.FUNC_ADD);
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
             gl.drawArrays(gl.POINTS, 0, settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value));
             gl.bindVertexArray(null);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
@@ -544,7 +543,7 @@ window.addEventListener('load', async () => {
     }
 
     //
-    // build ui (boring, and quite ugly)
+    // build ui (ugly code here)
     //
 
     function hex_rgb(c) {
@@ -570,7 +569,7 @@ window.addEventListener('load', async () => {
         panel.style.gap = '5px';
         ui.appendChild(panel);
 
-        const Range = (r, u, cb = 'input', s) => {
+        const Range = (r, u = 'float', cb = 'input', s) => {
             const span = document.createElement('span');
             span.style.display = 'flex';
             span.style.flexDirection = 'column';
@@ -587,19 +586,32 @@ window.addEventListener('load', async () => {
             span.appendChild(range);
             span.appendChild(info);
             const sync = () => {
-                let t = range.value;
+                let v = r.value;
                 if (s !== undefined) {
-                    t = s(t);
+                    v = s(v);
                 }
-                info.innerHTML = t;
+                info.innerHTML = v.toString();
             };
             if (u !== undefined) {
                 range.addEventListener(cb, () => {
+                    const v = range.value;
+                    if (u === 'float') {
+                        r.value = parseFloat(v);
+                    } else if (u === 'int') {
+                        r.value = parseInt(v);
+                    } else {
+                        u(range.value);
+                    }
                     sync();
-                    u(range.value);
                 });
             }
             sync();
+            settings.runtime.ui.addListener((e) => {
+                if (e === undefined) {
+                    range.value = r.value;
+                    sync();
+                }
+            });
             return span;
         };
         const row = (() => {
@@ -635,29 +647,19 @@ window.addEventListener('load', async () => {
             }
             settings.simulation.nspecies.value = parseInt(v);
         }, 'change'));
-        {
-            const i = row('Bodies', Range(settings.simulation.nbodies, (v) => {
-                settings.simulation.nbodies.value = parseInt(v);
-            }, 'input', v => `${parseInt(v) * (2 ** settings.simulation.grow.value)}`)).children[1];
-            settings.runtime.ui.addListener((e) => {
-                if (e === 'grow') {
-                    i.innerHTML = `${settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value)}`;
-                }
-            });
-        }
-        row('Velocity', Range(settings.simulation.velocity, (v) => {
-            settings.simulation.velocity.value = parseFloat(v);
-        }));
-        row('Gravity', Range(settings.simulation.gravity, (v) => {
-            settings.simulation.gravity.value = parseFloat(v);
-        }));
-        row('Damping', Range(settings.simulation.damping, (v) => {
-            settings.simulation.damping.value = parseFloat(v);
-        }));
+        row('Bodies', Range(settings.simulation.nbodies, (v) => {
+            settings.simulation.nbodies.value = parseInt(v);
+        }, 'input', v => `${v * (2 ** settings.simulation.grow.value)}`))
+        // row('Velocity', Range(settings.simulation.velocity, (v) => {
+        //     settings.simulation.velocity.value = parseFloat(v);
+        // }));
+        row('Velocity', Range(settings.simulation.velocity));
+        row('Gravity', Range(settings.simulation.gravity));
+        row('Damping', Range(settings.simulation.damping));
         row('Grow', Range(settings.simulation.grow, (v) => {
             settings.simulation.grow.value = parseInt(v);
             body();
-            settings.runtime.ui.notify('grow', settings.simulation.grow.value);
+            settings.runtime.ui.notify();
         }, 'change'));
         {
             const select = document.createElement('select');
@@ -666,6 +668,7 @@ window.addEventListener('load', async () => {
                 option.appendChild(document.createTextNode(m));
                 select.appendChild(option);
             }
+            select.selectedIndex = (settings.simulation.border === 'bounce') ? 0 : 1;
             select.addEventListener('change', () => {
                 switch (select.selectedIndex) {
                     case 0 : settings.simulation.border = 'bounce'; break;
@@ -675,23 +678,13 @@ window.addEventListener('load', async () => {
             row('Border', select);
         }
         row('Body');
-        row('Size', Range(settings.body.size, (v) => {
-            settings.body.size.value = parseFloat(v);
-        }));
+        row('Size', Range(settings.body.size));
         row('Force');
-        row('Factor', Range(settings.force.strength, (v) => {
-            settings.force.strength.value = parseFloat(v);
-        }));
-        row('Range', Range(settings.force.range, (v) => {
-            settings.force.range.value = parseFloat(v);
-        }));
-        row('Decay', Range(settings.force.decay, (v) => {
-            settings.force.decay.value = parseFloat(v);
-        }));
+        row('Factor', Range(settings.force.strength));
+        row('Range', Range(settings.force.range));
+        row('Decay', Range(settings.force.decay));
         if (ENABLE_UI_ZERO) {
-            row('Zero', Range(settings.force.zero, (v) => {
-                settings.force.zero.value = parseFloat(v);
-            }));
+            row('Zero', Range(settings.force.zero));
         }
         row('Resolution', Range(settings.simulation.resolution, (v) => {
             settings.simulation.resolution.value = parseInt(v);
@@ -732,10 +725,8 @@ window.addEventListener('load', async () => {
             row('Draw', div);
         }
         {
-            const r = row('Saturation', Range(settings.display.saturation, (v) => {
-                settings.display.saturation.value = parseFloat(v);
-            })).children[0];
-                settings.runtime.ui.addListener((e, v) => {
+            const r = row('Saturation', Range(settings.display.saturation)).children[0];
+            settings.runtime.ui.addListener((e, v) => {
                 if (e === 'show_field') {
                     r.disabled = !v;
                 }
@@ -758,8 +749,8 @@ window.addEventListener('load', async () => {
                 'P : randomize palette',
                 'R : reset random',
                 'B : reset big bang',
+                'T : freeze time',
                 'Click : apply force',
-                'Space : freeze time',
                 'E : toggle force editor',
                 'Escape : toggle settings'
             ]) {
@@ -857,9 +848,7 @@ window.addEventListener('load', async () => {
         settings.display.palette.addListener(reset_palette);
         show();
 
-
         document.body.appendChild(edit_force);
-        //canvas.appendChild(edit_force);
     }
 
     //
@@ -871,7 +860,7 @@ window.addEventListener('load', async () => {
             if (e.key === 'Escape') {
                 const ui = document.getElementById('ui');
                 ui.style.display = (ui.style.display === 'none') ? 'flex' : 'none';
-            } else if (e.key === ' ') {
+            } else if (e.key.toUpperCase() === 'T') {
                 settings.runtime.freeze = !settings.runtime.freeze;
             } else if (e.key.toUpperCase() === 'P') {
                 palette();
@@ -891,6 +880,8 @@ window.addEventListener('load', async () => {
                 settings.log.debug = !settings.log.debug;
             } else if (e.key.toUpperCase() === 'I') {
                 settings.log.info = !settings.log.info;
+            } else if (e.key === ' ') {
+                // TODO : add presets
             }
         }
     };

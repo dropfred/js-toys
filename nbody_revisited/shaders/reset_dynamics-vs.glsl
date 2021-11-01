@@ -31,8 +31,6 @@ uint hash(uint s)
 
 #endif
 
-const float EPSILON = 0.000000001f;
-
 void main()
 {
     vec2 position = vec2(0.0);

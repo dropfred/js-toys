@@ -49,10 +49,6 @@ uniform sampler2D u_field01;
 uniform sampler2D u_field23;
 #endif
 
-// uniform float u_mass;
-
-const float EPSILON = 0.000000001f;
-
 void main()
 {
     int type = gl_VertexID % u_nspecies;
@@ -102,7 +98,7 @@ void main()
     }
 #endif
 
-    v_velocity = (a_velocity * (1.0 - (u_damping * step(EPSILON, u_dt)))) + (acceleration * u_dt);
+    v_velocity = (a_velocity * (1.0 - (u_damping * u_dt))) + (acceleration * u_dt);
     v_position = a_position + a_velocity * u_dt;
     v_acceleration = acceleration;
 

@@ -116,7 +116,7 @@ function WGL(gl, options = {}) {
         return compile(gl.createShader(gl.FRAGMENT_SHADER), src, defines).shader;
     }
 
-    function program (vertex, fragment, feedback) {
+    function program(vertex, fragment, feedback) {
         const program = gl.createProgram();
         gl.attachShader(program, vertex);
         gl.attachShader(program, fragment);
@@ -148,7 +148,7 @@ function WGL(gl, options = {}) {
             }
         }
 
-        function uniform(name, ...value) {
+        function uniform(name, ... value) {
             const u = gl.getUniformLocation(program, name);
             if (u === null) {
                 throw 'invalid uniform ' + name;
