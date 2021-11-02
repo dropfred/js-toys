@@ -1,10 +1,10 @@
 "use strict";
 
-import {WGL    } from './utils/wgl.js';
+import {WGL} from './utils/wgl.js';
 import {Palette} from './utils/palette.js';
-import {Fps    } from './utils/fps.js';
-import {Source } from './utils/source.js';
-import {combine} from './utils/tk.js';
+import {Fps} from './utils/fps.js';
+import {Source} from './utils/source.js';
+import {opt, combine} from './utils/tk.js';
 
 window.addEventListener('load', async () => {
     const ENABLE_NEGATIVE_FORCE = false;
@@ -69,7 +69,7 @@ window.addEventListener('load', async () => {
         },
         force : {
             range    : new Range(75, 0, 150),
-            strength : new Range(0.75, 0, 1, 0.05),
+            strength : new Range(0.6, 0, 1, 0.05),
             decay    : new Range(1, 0, 3, 0.1),
             zero     : new Range(0.01, 0.01, 0.8, 0.01),
             max      : 100
@@ -83,8 +83,12 @@ window.addEventListener('load', async () => {
             forces   : Source(),
             palette  : Palette(),
             freeze   : false,
-            force    : new Range(0, 0, 100, 1),
-            mouse    : null
+            touch    : {
+                n     : 0,
+                time  : 0,
+                force : new Range(0, 0, 100, 1),
+                delay : 250
+            }
         },
         log : {
             debug : false,
@@ -413,7 +417,11 @@ window.addEventListener('load', async () => {
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
-    function reset_dynamics() {
+    function reset_dynamics(position, offset) {
+        position = opt(position, 1);
+        offset = opt(offset, [0, 0]);
+        material.reset_dynamics.uniform('u_position', position);
+        material.reset_dynamics.uniform('u_offset', offset);
         for (const r of render) {update_dynamics(r, true);}
         reset_field();
     }
@@ -437,9 +445,12 @@ window.addEventListener('load', async () => {
             material.update_field.uniform('u_offset', [x, y]);
             gl.drawArrays(gl.POINTS, 0, settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value));
             gl.bindVertexArray(null);
-            if (settings.runtime.mouse !== null) {
-                gl.vertexAttrib2f(material.update_field.attribute('a_position'), settings.runtime.mouse.x, settings.runtime.mouse.y);
-                gl.drawArrays(gl.POINTS, 0, settings.runtime.force.value);
+            if (settings.runtime.touch.n > 0) {
+                const r = settings.force.range.value;
+                settings.force.range.value = settings.force.range.max;
+                gl.vertexAttrib2f(material.update_field.attribute('a_position'), settings.runtime.touch.x, settings.runtime.touch.y);
+                gl.drawArrays(gl.POINTS, 0, settings.runtime.touch.force.value);
+                settings.force.range.value = r;
             }
         }
 
@@ -533,8 +544,8 @@ window.addEventListener('load', async () => {
         gl.depthMask(false);
 
         settings.runtime.dt.notify(dt);
-        if (settings.runtime.mouse !== null) {
-            ++settings.runtime.force.value;
+        if (settings.runtime.touch.n > 0) {
+            ++settings.runtime.touch.force.value;
         }
 
         update_field(r);
@@ -750,7 +761,8 @@ window.addEventListener('load', async () => {
                 'R : reset random',
                 'B : reset big bang',
                 'T : freeze time',
-                'Click : apply force',
+                'Touch : apply force',
+                'Double touch : reset all big bang',
                 'E : toggle force editor',
                 'Escape : toggle settings'
             ]) {
@@ -869,11 +881,9 @@ window.addEventListener('load', async () => {
                 settings.runtime.ui.notify('force');
             } else if (e.key.toUpperCase() === 'R') {
                 settings.simulation.random.notify(Math.random());
-                material.reset_dynamics.uniform('u_position', 1);
                 reset_dynamics();
             } else if (e.key.toUpperCase() === 'B') {
-                material.reset_dynamics.uniform('u_position', 0);
-                reset_dynamics();
+                reset_dynamics(0);
             } else if (e.key.toUpperCase() === 'E') {
                 edit_force.style.display = (edit_force.style.display === 'none') ? 'block' : 'none';
             } else if (e.key.toUpperCase() === 'D') {
@@ -886,27 +896,49 @@ window.addEventListener('load', async () => {
         }
     };
 
+    function touch(x, y, start = false) {
+        if (start) {
+            const t = Date.now();
+            if ((t - settings.runtime.touch.time) < settings.runtime.touch.delay) {
+                settings.runtime.touch.n = 0;
+                palette();
+                force();
+                reset_dynamics(0, [settings.runtime.touch.x, settings.runtime.touch.y]);
+            } else {
+                settings.runtime.touch.time = t;
+                settings.runtime.touch.n = 1;
+                settings.runtime.touch.force.value = 0;
+            }
+        }
+        if (settings.runtime.touch.n > 0) {
+             settings.runtime.touch.x = x - (canvas.width / 2);
+             settings.runtime.touch.y = (canvas.height / 2) - y;
+        }
+    }
+
     canvas.addEventListener('mousedown', e => {
-        settings.runtime.mouse = {
-            x : e.x - (canvas.width / 2),
-            y : (canvas.height / 2) - e.y
-        };
-        settings.runtime.force.value = 0;
+        touch(e.x, e.y, true);
     });
     canvas.addEventListener('mousemove', e => {
-        if (settings.runtime.mouse !== null) {
-            settings.runtime.mouse.x = e.x - (canvas.width / 2);
-            settings.runtime.mouse.y = (canvas.height / 2) - e.y;
-        }
+        touch(e.x, e.y);
     });
     canvas.addEventListener('mouseup', e => {
-        settings.runtime.mouse = null;
+        settings.runtime.touch.n = 0;
     });
 
-    // TODO
-    // canvas.addEventListener("touchstart", () => {});
-    // canvas.addEventListener("touchmove", () => {});
-    // canvas.addEventListener("touchend", () => {});
+    canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        touch(t.pageX, t.pageY, true);
+    }, {passive: false});
+    canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        touch(t.pageX, t.pageY);
+    }, {passive: false});
+    canvas.addEventListener("touchend", (e) => {
+        settings.runtime.touch.n = 0;
+    });
 
     wgl.addObserver(wgl.EVENT.VISIBILITY, v => {
         settings.runtime.time = 0;

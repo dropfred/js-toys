@@ -40,7 +40,7 @@ Some tips for a maximum of bodies :
 - Use bounce border mode.
 - Use a low force range (about 10-30 pixels) with a zero decay.
 
-_Caveats: although the demo runs correctly on smartphones supporting WEBGL 2, the UI is not designed for mobile devices._
+_Caveats: although the demo runs correctly on smartphones supporting WEBGL 2, the UI is not designed for mobile devices. However, miniminal (warning: by minimal I mean buggy if you mess with more than just one finger) touch support is provided: you can add force by touching the screen, and reset everything (big bang mode) by double tapping._
 
 ## orbit
 

@@ -10,6 +10,7 @@ out vec2 v_acceleration;
 uniform vec2  u_size;
 uniform float u_position;
 uniform float u_velocity;
+uniform vec2 u_offset;
 
 #if defined(RAND)
 
@@ -45,7 +46,8 @@ void main()
     {
         uvec2 r = uvec2(hash(uint(gl_VertexID + seed)), hash(uint(gl_VertexID * 2 + seed)));
         position = vec2(float(r.x) / float(0xffffffffu), float(r.y) / float(0xffffffffu)) * 2.0 - vec2(1.0);
-        position *= u_size * u_position;
+        position *= (u_size * u_position);
+        position += u_offset;
     }
     {
         uvec2 r = uvec2(hash(uint(gl_VertexID + seed + 1)), hash(uint(gl_VertexID * 2 + seed + 1)));
