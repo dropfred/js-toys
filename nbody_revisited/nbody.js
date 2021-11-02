@@ -87,7 +87,8 @@ window.addEventListener('load', async () => {
                 n     : 0,
                 time  : 0,
                 force : new Range(0, 0, 100, 1),
-                delay : 250
+                delay : 250,
+                reset : 0
             }
         },
         log : {
@@ -756,13 +757,13 @@ window.addEventListener('load', async () => {
             ul.style.flexDirection = 'column';
             ui.appendChild(ul);
             for (const i of [
-                'F : randomize force',
+                'F or tap : randomize force',
                 'P : randomize palette',
                 'R : reset random',
                 'B : reset big bang',
                 'T : freeze time',
                 'Touch : apply force',
-                'Double touch : reset all big bang',
+                'Double touch : randomize + reset',
                 'E : toggle force editor',
                 'Escape : toggle settings'
             ]) {
@@ -903,7 +904,9 @@ window.addEventListener('load', async () => {
                 settings.runtime.touch.n = 0;
                 palette();
                 force();
-                reset_dynamics(0, [settings.runtime.touch.x, settings.runtime.touch.y]);
+                settings.runtime.touch.reset = (settings.runtime.touch.reset + 1) % 2;
+                const r = settings.runtime.touch.reset;
+                reset_dynamics(r - 1, [settings.runtime.touch.x * r, settings.runtime.touch.y * r]);
             } else {
                 settings.runtime.touch.time = t;
                 settings.runtime.touch.n = 1;
@@ -937,6 +940,11 @@ window.addEventListener('load', async () => {
         touch(t.pageX, t.pageY);
     }, {passive: false});
     canvas.addEventListener("touchend", (e) => {
+        if (settings.runtime.touch.n > 0) {
+            if ((Date.now() - settings.runtime.touch.time) < settings.runtime.touch.delay) {
+                force();
+            }
+        }
         settings.runtime.touch.n = 0;
     });
 
