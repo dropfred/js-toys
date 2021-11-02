@@ -3,75 +3,46 @@
 import {WGL} from './utils/wgl.js';
 import {Palette} from './utils/palette.js';
 import {Fps} from './utils/fps.js';
-import {Source} from './utils/source.js';
+import {Source, SourceValue} from './utils/source.js';
 import {opt, combine} from './utils/tk.js';
 
 window.addEventListener('load', async () => {
     const ENABLE_NEGATIVE_FORCE = false;
     const ENABLE_UI_ZERO = false;
 
-    class Range {
-        #source;
-        #value;
-
-        constructor(value, min, max, step) {
-            this.#value  = value;
-            this.#source = Source();
-            this.min     = min;
-            this.max     = max;
-            this.step    = step;
-        }
-
-        get value() {
-            return this.#value;
-        }
-
-        set value(value) {
-            this.#value = Math.min(Math.max(value, this.min), this.max);
-            this.notify();
-        }
-
-        addListener(cb) {
-            cb(this.#value);
-            this.#source.addListener(cb);
-        }
-
-        removeListener(cb) {
-            this.#source.removeListener(cb);
-        }
-
-        notify() {
-            this.#source.notify(this.#value);
-        }
+    function Range(value, min, max, step) {
+        const r = new SourceValue(value, v => Math.min(Math.max(v, min), max));
+        Object.assign(r, {min, max, step});
+        return r;
     }
 
     const settings = {
         simulation : {
-            nbodies    : new Range(5000, 1, 10000, 1),
-            nspecies   : new Range(3, 1, 4),
-            grow       : new Range(0, 0, 7, 1),
-            damping    : new Range(0.2, 0, 1, 0.1),
-            velocity   : new Range(100, 10, 500),
-            gravity    : new Range(0, 0, 0.5, 0.05),
-            resolution : new Range(0, 0, 4),
+            nbodies    : Range(5000, 1, 10000),
+            nspecies   : Range(3, 1, 4),
+            grow       : Range(0, 0, 7),
+            damping    : Range(0.2, 0, 1, 0.1),
+            velocity   : Range(100, 10, 500),
+            gravity    : Range(0, 0, 0.5, 0.05),
+            resolution : Range(0, 0, 4),
             border     : 'wrap',
             random     : Source()
         },
         body : {
-            size : new Range(10, 1, 50)
+            size : Range(10, 1, 50)
         },
         display : {
             background : [0.02, 0.02, 0.1],
             body       : true,
             field      : true,
-            saturation : new Range(0.5, 0, 1, 0.01),
+            saturation : Range(0.5, 0, 1, 0.01),
             palette    : Source()
         },
         force : {
-            range    : new Range(75, 0, 150),
-            strength : new Range(0.6, 0, 1, 0.05),
-            decay    : new Range(1, 0, 3, 0.1),
-            zero     : new Range(0.01, 0.01, 0.8, 0.01),
+            range    : Range(75, 0, 150),
+            strength : Range(0.6, 0, 1, 0.05),
+            decay    : Range(1, 0, 3, 0.1),
+            zero     : Range(0.01, 0.01, 0.8, 0.01),
             max      : 100
         },
         runtime : {
@@ -86,7 +57,7 @@ window.addEventListener('load', async () => {
             touch    : {
                 n     : 0,
                 time  : 0,
-                force : new Range(0, 0, 100, 1),
+                force : new SourceValue(0, v => Math.min(v, 100)),
                 delay : 250,
                 reset : 0
             }

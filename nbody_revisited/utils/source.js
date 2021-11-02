@@ -1,5 +1,7 @@
 "use strict";
 
+import {opt} from './tk.js';
+
 function Source() {
     const listeners = [];
 
@@ -20,4 +22,38 @@ function Source() {
     return {addListener, removeListener, notify};
 }
 
-export {Source};
+class SourceValue {
+    #source;
+    #value;
+    #map;
+
+    constructor(value, map) {
+        this.#source = Source();
+        this.#map    = opt(map, x => x);
+        this.#value  = this.#map(value);
+    }
+
+    get value() {
+        return this.#value;
+    }
+
+    set value(value) {
+        this.#value = this.#map(value);
+        this.notify();
+    }
+
+    addListener(cb) {
+        cb(this.#value);
+        this.#source.addListener(cb);
+    }
+
+    removeListener(cb) {
+        this.#source.removeListener(cb);
+    }
+
+    notify() {
+        this.#source.notify(this.#value);
+    }
+}
+
+export {Source, SourceValue};
