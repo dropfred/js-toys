@@ -554,6 +554,21 @@ window.addEventListener('load', async () => {
         update_dynamics(r);
     }
 
+    settings.simulation.nspecies.addListener(() => {
+        reset_field();
+    });
+
+    settings.simulation.grow.addListener(() => {
+        reset_field();
+        body();
+        settings.runtime.ui.notify();
+    });
+    
+    settings.simulation.resolution.addListener(() => {
+        resize();
+        settings.force.range.notify();
+    });
+
     //
     // build ui (ugly code here)
     //
@@ -652,27 +667,12 @@ window.addEventListener('load', async () => {
         })();
 
         row('Simulation');
-        row('Species', Range(settings.simulation.nspecies, (v) => {
-            v = parseInt(v);
-            if ((v <= 2) && (settings.simulation.nspecies.value > 2)) {
-                reset_field();
-            }
-            settings.simulation.nspecies.value = parseInt(v);
-        }, 'change'));
-        row('Bodies', Range(settings.simulation.nbodies, (v) => {
-            settings.simulation.nbodies.value = parseInt(v);
-        }, 'input', v => `${v * (2 ** settings.simulation.grow.value)}`))
-        // row('Velocity', Range(settings.simulation.velocity, (v) => {
-        //     settings.simulation.velocity.value = parseFloat(v);
-        // }));
+        row('Species', Range(settings.simulation.nspecies, 'int', 'change'));
+        row('Bodies', Range(settings.simulation.nbodies, 'int', 'input', v => `${v * (2 ** settings.simulation.grow.value)}`))
         row('Velocity', Range(settings.simulation.velocity));
         row('Gravity', Range(settings.simulation.gravity));
         row('Damping', Range(settings.simulation.damping));
-        row('Grow', Range(settings.simulation.grow, (v) => {
-            settings.simulation.grow.value = parseInt(v);
-            body();
-            settings.runtime.ui.notify();
-        }, 'change'));
+        row('Grow', Range(settings.simulation.grow, 'int', 'change'));
         {
             const select = document.createElement('select');
             for (const m of ['Bounce', 'Wrap']) {
@@ -698,11 +698,7 @@ window.addEventListener('load', async () => {
         if (ENABLE_UI_ZERO) {
             row('Zero', Range(settings.force.zero));
         }
-        row('Resolution', Range(settings.simulation.resolution, (v) => {
-            settings.simulation.resolution.value = parseInt(v);
-            resize();
-            settings.force.range.notify();
-        }, 'change'));
+        row('Resolution', Range(settings.simulation.resolution, 'int', 'change'));
         row('Display');
         {
             const cs = document.createElement('input');
