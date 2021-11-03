@@ -104,12 +104,10 @@ void main()
 
 #if defined(MAX_VELOCITY)
     {
-        float mv = u_max_velocity;
         float v = length(v_velocity);
-        if (v > 0.0)
+        if (v > u_max_velocity)
         {
-            v = max(1.0, v / mv);
-            v_velocity /= v;
+            v_velocity *= u_max_velocity / v;
         }
     }
 #endif    

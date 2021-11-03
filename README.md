@@ -32,7 +32,7 @@ Few explanations for the demo's settings:
 - When it makes sense, parameters' units are in pixels for length, and seconds for time. As an example, velocity is expressed in pixels/second.
 - The simulation's grow parameter doubles the number of bodies each step up. Be cautious with this one!
 - Force decay is the attenuation power. A power of 0 is no decay, 1 is linear, 2 is quadratic, and so on.
-- Resolution is the resolution factor used for the force field map. Max resolution is equal to the canvas size, and each step down halfs the resolution. Be cautious with this parameter too, updating force field map is a costly operation. Note that this parameter defaults to the lowest level, and it may lead to visible artifacts, in particular in how the bodies arrange themselves.
+- Resolution is the resolution factor used for the force field map. Max resolution is equal to the canvas size, and each step down halfs the resolution. Be cautious with this parameter too, updating force field map is a costly operation. Note that this parameter defaults to the lowest level, and it may lead to visible artifacts, in particular in how the bodies arrange themselves in a squarish manner when the force range is low.
 
 Some tips for a maximum of bodies :
 - Set the number of species to one or two.
