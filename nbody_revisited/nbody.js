@@ -35,6 +35,7 @@ window.addEventListener('load', async () => {
             background : [0.02, 0.02, 0.1],
             body       : true,
             field      : true,
+            glow       : false,
             saturation : Range(0.5, 0, 1, 0.01),
             palette    : Source()
         },
@@ -155,10 +156,15 @@ window.addEventListener('load', async () => {
             wgl.shader.vertex(src.vertex, [`MAX_SPECIES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
             wgl.shader.fragment(src.fragment, ['POINT'])
         ));
-        for (const m of [material.draw_body, material.draw_body_point]) {
-            source_uniform(settings.body.size, m, 'u_size');
+        material.draw_body_glow = wgl.material(wgl.program(
+            wgl.shader.vertex(src.vertex, [`MAX_SPECIES=${settings.simulation.nspecies.max}`, 'NORMALIZE']),
+            wgl.shader.fragment(src.fragment, ['AA=2.0', 'DECAY'])
+        ));
+        for (const m of [material.draw_body, material.draw_body_point, material.draw_body_glow]) {
+            source_uniform(settings.body.size, m, 'u_size', (m === material.draw_body_glow) ? (s => s * 2) : undefined);
             source_uniform(settings.display.palette, m, 'u_palette');
         }
+        material.draw_body_glow.uniform('u_decay', 1);
     }
     {
         // TODO : check how significantly would perfs increase with 2 shaders (2/4 species) rather than just 1 (4 species)
@@ -264,6 +270,7 @@ window.addEventListener('load', async () => {
         material.update_dynamics_bounce,
         material.update_dynamics_wrap,
         material.draw_body,
+        material.draw_body_glow,
         material.draw_body_point
     ]) {
         source_uniform(settings.simulation.nspecies, m, 'u_nspecies');
@@ -297,6 +304,8 @@ window.addEventListener('load', async () => {
         gl.bindBuffer(gl.ARRAY_BUFFER, vbo.dynamics[i]);
         for (const m of [
             material.draw_body,
+            material.draw_body_glow,
+            material.draw_body_point,
             material.update_field
         ]) {
             m.attribute('a_position', {stride : 24});
@@ -471,13 +480,24 @@ window.addEventListener('load', async () => {
             gl.bindTexture(gl.TEXTURE_2D, null);
         }
 
-        if (settings.display.body) {
+        if ((settings.display.body) || (settings.display.glow && (settings.body.size.value > 3))) {
             gl.bindVertexArray(render.display);
-            gl.useProgram(((settings.body.size.value > 4) ? material.draw_body :  material.draw_body_point).program);
             gl.enable(gl.BLEND);
             gl.blendEquation(gl.FUNC_ADD);
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE);
-            gl.drawArrays(gl.POINTS, 0, settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value));
+
+            const bs = settings.simulation.nbodies.value * (2 ** settings.simulation.grow.value);
+
+            if (settings.display.glow && (settings.body.size.value > 3)) {
+                gl.useProgram(material.draw_body_glow.program);
+                gl.drawArrays(gl.POINTS, 0, bs);
+            }
+
+            if (settings.display.body) {
+                gl.useProgram(((settings.body.size.value > 3) ? material.draw_body :  material.draw_body_point).program);
+                gl.drawArrays(gl.POINTS, 0, bs);
+            }
+
             gl.bindVertexArray(null);
             gl.bindBuffer(gl.ARRAY_BUFFER, null);
         }
@@ -684,7 +704,7 @@ window.addEventListener('load', async () => {
             const div = document.createElement('div');
             div.style.display = 'grid';
             div.style.justifyContent = 'flex-start';
-            for (const [i, s] of ['body', 'field'].entries()) {
+            for (const [i, s] of ['body', 'field', 'glow'].entries()) {
                 const cb = document.createElement('input');
                 cb.type = 'checkbox';
                 cb.checked = settings.display[s];
@@ -696,10 +716,11 @@ window.addEventListener('load', async () => {
                 label.style.gridRow = i + 1;
                 label.style.gridColumn = 2;
                 div.appendChild(label);
-                cb.addEventListener('input', () => {
+                cb.addEventListener('change', () => {
                     settings.display[s] = cb.checked;
                     settings.runtime.ui.notify(`show_${s}`, cb.checked);
                 });
+                settings.runtime.ui.addListener((e) => {if (e === undefined) {cb.checked = settings.display[s];}});
             }
             row('Draw', div);
         }
