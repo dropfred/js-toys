@@ -35,7 +35,10 @@ uniform vec2 u_gravity;
 uniform float u_border;
 #endif
 uniform float u_dt;
-uniform float[MAX_SPECIES * MAX_SPECIES] u_forces;
+uniform float[MAX_SPECIES * MAX_SPECIES] u_force;
+#if defined(MASS)
+uniform float[MAX_SPECIES] u_mass;
+#endif
 uniform vec2 u_half_vp;
 #if defined(NORMALIZE)
 uniform vec2 u_scale;
@@ -66,17 +69,17 @@ void main()
     
     {
         vec4 force = texture(u_field01, uv);
-        acceleration += force.xy * u_forces[f];
+        acceleration += force.xy * u_force[f];
 #if (MAX_SPECIES > 1)
-        acceleration += force.zw * u_forces[f + 1];
+        acceleration += force.zw * u_force[f + 1];
 #endif
     }
 #if (MAX_SPECIES > 2)
     {
         vec4 force = texture(u_field23, uv);
-        acceleration += force.xy * u_forces[f + 2];
+        acceleration += force.xy * u_force[f + 2];
 #if (MAX_SPECIES > 3)
-        acceleration += force.zw * u_forces[f + 3];
+        acceleration += force.zw * u_force[f + 3];
 #endif
     }
 #endif
@@ -84,6 +87,14 @@ void main()
     acceleration *= u_strength * u_factor;
 
     acceleration += u_gravity;
+
+#if defined(MASS)
+    float mass = u_mass[type];
+#else
+    float mass = 1.0;
+#endif
+
+    acceleration /= mass;
 
 #if defined(BORDER) && (BORDER == BORDER_BOUNCE_SOFT)
     {

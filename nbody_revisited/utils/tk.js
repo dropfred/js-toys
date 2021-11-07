@@ -28,8 +28,8 @@ function * combine(... xs) {
     }
 }
 
-function remap(x, ba, ea, bb, eb) {
-    return (((x - ba) * (eb - bb)) / (ea - ba)) + bb;
+function remap(x, tb, te, fb = 0, fe = 1) {
+    return (tb + (x - fb) * (fe - fb) * (te - tb));
 }
 
 function * range(... bes) {

@@ -4,11 +4,12 @@ import {WGL} from './utils/wgl.js';
 import {Palette} from './utils/palette.js';
 import {Fps} from './utils/fps.js';
 import {Source, SourceValue} from './utils/source.js';
-import {opt, combine, choice} from './utils/tk.js';
+import {opt, combine, choice, remap} from './utils/tk.js';
 import {Pointer, Touch, Tap, Swipe, Box} from './utils/pointer.js';
 
 window.addEventListener('load', async () => {
     const ENABLE_NEGATIVE_FORCE = false;
+    const ENABLE_MASS = false;
     const ENABLE_UI_ZERO = false;
 
     function Range(value, min, max, step) {
@@ -53,6 +54,7 @@ window.addEventListener('load', async () => {
             dt      : Source(),
             size    : Source(),
             forces  : Source(),
+            masses  : Source(),
             palette : Palette(),
             freeze  : false,
             touch   : {
@@ -175,6 +177,7 @@ window.addEventListener('load', async () => {
                     `MAX_SPECIES=${settings.simulation.nspecies.max}`,
                     'MAX_VELOCITY',
                     'NORMALIZE',
+                    ENABLE_MASS ? 'MASS' : '',
                     // 'NOISE',
                     'BORDER=BORDER_BOUNCE_SOFT'
                 ]),
@@ -188,6 +191,7 @@ window.addEventListener('load', async () => {
                     `MAX_SPECIES=${settings.simulation.nspecies.max}`,
                     'MAX_VELOCITY',
                     'NORMALIZE',
+                    ENABLE_MASS ? 'MASS' : '',
                     // 'NOISE',
                     'BORDER=BORDER_WRAP'
                 ]),
@@ -214,7 +218,10 @@ window.addEventListener('load', async () => {
             source_uniform(settings.simulation.velocity, m, 'u_max_velocity');
             source_uniform(settings.simulation.gravity, m, 'u_gravity', g => [0, -(g * settings.force.range.max)]);
             source_uniform(settings.runtime.dt, m, 'u_dt');
-            source_uniform(settings.runtime.forces, m, 'u_forces');
+            source_uniform(settings.runtime.forces, m, 'u_force');
+            if (ENABLE_MASS) {
+                source_uniform(settings.runtime.masses, m, 'u_mass');
+            }
         }
         material.reset_dynamics.uniform('u_position', 1);
         source_uniform(settings.simulation.velocity, material.reset_dynamics, 'u_velocity');
@@ -393,9 +400,21 @@ window.addEventListener('load', async () => {
         return fs;
     }
 
+    function update_mass() {
+        const ms = [];
+        for (let i = 0; i < settings.simulation.nspecies.max; ++i) {
+            ms.push(2 ** remap(Math.random(), -3, 3));
+        }
+        settings.runtime.masses.notify(ms);
+        if (settings.log.info) {
+            console.info('### masses', JSON.stringify(ms));
+        }
+        return ms;
+    }
+
     function update_dynamics(render, reset = false) {
         const bs = reset ? settings.simulation.nbodies.max : settings.simulation.nbodies.value;
-        const m = reset                                     ? material.reset_dynamics
+        const m = reset                                           ? material.reset_dynamics
                 : (settings.simulation.border.value === 'bounce') ? material.update_dynamics_bounce
                 :                                                   material.update_dynamics_wrap;
         gl.useProgram(m.program);
@@ -878,6 +897,8 @@ window.addEventListener('load', async () => {
                 update_palette();
             } else if (e.key.toUpperCase() === 'F') {
                 update_force();
+            } else if (e.key.toUpperCase() === 'M') {
+                update_mass();
             } else if (e.key.toUpperCase() === 'R') {
                 settings.simulation.random.notify(Math.random());
                 reset_dynamics();
@@ -986,6 +1007,7 @@ window.addEventListener('load', async () => {
         window.requestAnimationFrame(loop);
     }
 
+    update_mass();
     update_force();
     update_palette();
     update_buffer();
