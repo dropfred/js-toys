@@ -60,4 +60,20 @@ function * zip(a, b) {
     }
 }
 
-export {opt, flat, combine, remap, range, zip};
+function choice(... cws) {
+    if (cws.length === 0) {
+        return undefined;
+    }
+    const cs = [];
+    for (let wc of cws) {
+        if (!(wc instanceof (Array))) {
+            wc = [wc, 1];
+        }
+        for (let i = 0; i < wc[1]; ++i) {
+            cs.push(wc[0]);
+        }
+    }
+    return cs[Math.trunc(Math.random() * cs.length)];
+}
+
+export {opt, flat, combine, remap, range, zip, choice};

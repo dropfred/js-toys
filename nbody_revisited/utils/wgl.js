@@ -1,6 +1,6 @@
 "use strict";
 
-import * as Tk from './tk.js';
+import {opt} from './tk.js';
 
 function WGL(gl, options = {}) {
     const VERSION = {
@@ -26,7 +26,7 @@ function WGL(gl, options = {}) {
     })(gl.getParameter(gl.VERSION));
 
     options = Object.assign({
-        scale : 1.0,
+        scale : 1,
         extensions : []
     }, options);
 
@@ -43,44 +43,43 @@ function WGL(gl, options = {}) {
         }
     }
 
-    function resize(width, height) {
-        gl.canvas.width  = Tk.opt(width , gl.canvas.clientWidth ) * options.scale;
-        gl.canvas.height = Tk.opt(height, gl.canvas.clientHeight) * options.scale;
-    }
-
     const EVENT = {
         RESIZE     : 'resize',
         VISIBILITY : 'visibility'
     };
 
-    const observers = {};
+    // TODO : use sources
+    const listeners = {};
     for (const e in EVENT) {
-        observers[EVENT[e]] = new Set();
+        listeners[EVENT[e]] = new Set();
     }
 
-    function addObserver(event, cb) {
-        if (event in observers) {
-            observers[event].add(cb);
+    function addListener(event, cb) {
+        if (event in listeners) {
+            listeners[event].add(cb);
         }
     }
 
-    function removeObserver(event, cb) {
-        if (event in observers) {
-            observers[event].delete(cb);
+    function removeListener(event, cb) {
+        if (event in listenerss) {
+            listeners[event].delete(cb);
+        }
+    }
+
+    function resize(width, height) {
+        gl.canvas.width  = Math.trunc(opt(width , gl.canvas.clientWidth ) * options.scale);
+        gl.canvas.height = Math.trunc(opt(height, gl.canvas.clientHeight) * options.scale);
+        for (const [cb, _] of listeners[EVENT.RESIZE].entries()) {
+            cb(gl.canvas.width, gl.canvas.height);
         }
     }
 
     // todo : specs ensure that the observer isn't garbaged
-    (new ResizeObserver(() => {
-        resize();
-        for (const [cb, _] of observers[EVENT.RESIZE].entries()) {
-            cb(gl.canvas.width, gl.canvas.height);
-        }
-    })).observe(gl.canvas);
+    (new ResizeObserver(() => {resize();})).observe(gl.canvas);
 
     document.addEventListener('visibilitychange', () => {
-        const v = document.visibilityState === 'visible';
-        for (const [cb, _] of observers[EVENT.VISIBILITY].entries()) {
+        const v = (document.visibilityState === 'visible');
+        for (const [cb, _] of listeners[EVENT.VISIBILITY].entries()) {
             cb(v);
         }                
     });
@@ -348,6 +347,8 @@ function WGL(gl, options = {}) {
         }
     }
 
+    resize();
+
     return {
         VERSION,
         EVENT,
@@ -360,8 +361,9 @@ function WGL(gl, options = {}) {
         program,
         material,
 
-        addObserver,
-        removeObserver
+        resize,
+        addListener,
+        removeListener
     };
 }
 

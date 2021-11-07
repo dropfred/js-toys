@@ -187,6 +187,7 @@ function WebGL(gl, options) {
             } else {
                 gl.disableVertexAttribArray(a);    
             }
+            return a;
         }
 
         return {

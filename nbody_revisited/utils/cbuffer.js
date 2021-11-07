@@ -1,35 +1,19 @@
 "use strict";
 
-import * as Tk from './tk.js';
-
 class CircularBuffer {
     #capacity;
     #size;
     #offset;
     #buffer;
 
-    constructor(capacity) {
-        this.#capacity = Tk.opt(capacity, 60);
+    constructor(capacity = 60) {
+        this.#capacity = capacity;
         this.#size     = 0;
         this.#offset   = 0;
         this.#buffer   = [];
-    }
-
-    get length() {
-        return this.#size;
-    }
-
-    // how to disable setters ? throw or ignore ?
-    set length(v) {
-        throw 'read only';
-    }
-
-    get full() {
-        return (this.#size === this.#capacity);
-    }
-
-    set full(v) {
-        throw 'read only';
+        // read only properties
+        Object.defineProperty(this, 'length', {get : () => this.#size});
+        Object.defineProperty(this, 'full'  , {get : () => (this.#size === this.#capacity)});
     }
 
     push(... vs) {

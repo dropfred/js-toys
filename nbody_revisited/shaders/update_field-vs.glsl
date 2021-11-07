@@ -5,6 +5,7 @@ in vec2 a_position;
 flat out int v_type;
 
 uniform float u_range;
+uniform float u_resolution;
 uniform vec2 u_offset;
 uniform int u_nspecies;
 #if defined(NORMALIZE)
@@ -17,7 +18,7 @@ void main()
 
     v_type = type;
 
-    gl_PointSize = u_range * 2.0;
+    gl_PointSize = u_range * 2.0 * u_resolution;
 
     vec2 position = a_position;
 #if defined(NORMALIZE)
