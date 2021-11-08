@@ -24,15 +24,16 @@ window.addEventListener('load', async () => {
             grow       : Range(0, 0, 7),
             damping    : Range(0.2, 0, 1, 0.1),
             velocity   : Range(100, 10, 500),
-            gravity    : Range(0, 0, 0.5, 0.05),
-            wind       : Range(0, 0, 0.5, 0.05),
+            gravity    : Range(0, 0, 100),
+            wind       : Range(0, 0, 100),
             resolution : Range(0, 0, 4),
             border     : new SourceValue('wrap'),
             random     : Source()
         },
         body : {
-            size : Range(10, 1, 50),
-            mass : Range(0, 0, 1, 0.1)
+            size  : Range(10, 1, 50),
+            mass  : Range(0, 0, 1, 0.1),
+            dmass : 3
         },
         display : {
             background : [0.02, 0.02, 0.1],
@@ -44,10 +45,9 @@ window.addEventListener('load', async () => {
         },
         force : {
             range    : Range(50, 0, 150),
-            strength : Range(0.6, 0, 1, 0.05),
+            strength : Range(100, 0, 200),
             decay    : Range(1, 0, 3, 0.1),
-            zero     : Range(0.01, 0.01, 0.8, 0.01),
-            max      : 100
+            zero     : Range(0.01, 0.01, 0.8, 0.01)
         },
         runtime : {
             frame   : 0,
@@ -59,11 +59,13 @@ window.addEventListener('load', async () => {
             palette : Palette(),
             freeze  : false,
             touch   : {
-                n     : 0,
-                time  : 0,
-                force : new SourceValue(0, v => Math.min(v, 100)),
-                delay : 250,
-                reset : 0
+                n       : 0,
+                time    : 0,
+                force   : new SourceValue(0, v => Math.min(v, 100)),
+                decay   : 1,
+                range   : 100,
+                delay   : 250,
+                reset   : 0 // 0 : random, 1 big bang
             }
         },
         log : {
@@ -214,11 +216,10 @@ window.addEventListener('load', async () => {
         for (const m of [material.update_dynamics_bounce, material.update_dynamics_wrap]) {
             m.uniform('u_field01', 0);
             if (settings.simulation.nspecies.max > 2) {m.uniform('u_field23', 1);}
-            m.uniform('u_force_max', settings.force.range.max);
             source_uniform(settings.simulation.damping, m, 'u_damping');
-            source_uniform(settings.simulation.velocity, m, 'u_max_velocity');
-            source_uniform(settings.simulation.gravity, m, 'u_gravity', g => [0, -(g * settings.force.range.max)]);
-            source_uniform(settings.simulation.wind, m, 'u_wind', g => [(g * settings.force.range.max), 0]);
+            source_uniform(settings.simulation.velocity, m, 'u_velocity_max');
+            source_uniform(settings.simulation.gravity, m, 'u_gravity', g => [0, -g]);
+            source_uniform(settings.simulation.wind, m, 'u_wind', w => [w, 0]);
             source_uniform(settings.runtime.dt, m, 'u_dt');
             source_uniform(settings.body.mass, m, 'u_mass', (r) => {
                 const os = Array(settings.simulation.nspecies.max).fill(1);
@@ -229,12 +230,13 @@ window.addEventListener('load', async () => {
                 return opt(settings.runtime.force.value, zs).map(f => f * r);
             });
         }
-        settings.runtime.mass.addListener(() => {settings.body.mass.notify();});
-        settings.runtime.force.addListener(() => {settings.force.strength.notify();});
         source_uniform(settings.simulation.velocity, material.reset_dynamics, 'u_velocity');
         source_uniform(settings.simulation.random, material.reset_dynamics, 'u_seed', r => Math.round(r * 0xffffff));
         source_uniform(settings.runtime.size, material.reset_dynamics, 'u_size', (w, h) => [(w / 2), (h / 2)]);
         material.reset_dynamics.uniform('u_position', 1);
+        material.update_dynamics_bounce.uniform('u_bounce_force', settings.force.strength.max);
+        settings.runtime.mass.addListener(() => {settings.body.mass.notify();});
+        settings.runtime.force.addListener(() => {settings.force.strength.notify();});
     }
     {
         const src = {
@@ -283,7 +285,7 @@ window.addEventListener('load', async () => {
             gl.bufferData(gl.ARRAY_BUFFER, d, gl.STREAM_DRAW);
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
-        reset_dynamics();
+        reset_dynamics(0);
     }
 
     const render = [
@@ -398,7 +400,7 @@ window.addEventListener('load', async () => {
         for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
             const r = Math.random() * 0.4 + 0.1;
             for (let b = 0; b < settings.simulation.nspecies.max; ++b) {
-                fs.push(((a === b) ? r : r + Math.random() * (0.9 - r) + 0.1) * settings.force.strength.max);
+                fs.push(((a === b) ? r : r + Math.random() * (0.9 - r) + 0.1));
             }
         }
         settings.runtime.force.value = fs;
@@ -411,7 +413,7 @@ window.addEventListener('load', async () => {
     function rand_mass() {
         const ms = [];
         for (let i = 0; i < settings.simulation.nspecies.max; ++i) {
-            ms.push(2 ** remap(Math.random(), -3, 3));
+            ms.push(2 ** remap(Math.random(), -settings.body.dmass, settings.body.dmass));
         }
         settings.runtime.mass.value = ms;
         if (settings.log.info) {
@@ -449,9 +451,7 @@ window.addEventListener('load', async () => {
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
-    function reset_dynamics(position, offset) {
-        position = opt(position, 1);
-        offset = opt(offset, [0, 0]);
+    function reset_dynamics(position = 1, offset = [0, 0]) {
         material.reset_dynamics.uniform('u_position', position);
         material.reset_dynamics.uniform('u_offset', offset);
         for (const r of render) {update_dynamics(r, true);}
@@ -476,7 +476,9 @@ window.addEventListener('load', async () => {
             gl.bindVertexArray(null);
             if (settings.runtime.touch.n > 0) {
                 const r = settings.force.range.value;
-                settings.force.range.value = settings.force.range.max;
+                const d = settings.force.decay.value;
+                settings.force.range.value = settings.runtime.touch.range;
+                settings.force.decay.value = settings.runtime.touch.decay;
                 gl.vertexAttrib2f(
                     material.update_field.attribute('a_position'),
                     settings.runtime.touch.x,
@@ -484,6 +486,7 @@ window.addEventListener('load', async () => {
                 );
                 gl.drawArrays(gl.POINTS, 0, settings.runtime.touch.force.value);
                 settings.force.range.value = r;
+                settings.force.decay.value = d;
             }
         }
 
@@ -727,9 +730,11 @@ window.addEventListener('load', async () => {
         }
         row('Body');
         row('Size', Range(settings.body.size));
-        row('Mass', Range(settings.body.mass));
+        row('Mass', Range(settings.body.mass, 'float', 'input', (m) => {
+            return ((m === 0) ? '1' : `[${(2 ** (-settings.body.dmass * m)).toFixed(1)} - ${(2 ** (settings.body.dmass * m)).toFixed(1)}]`);
+        }));
         row('Force');
-        row('Factor', Range(settings.force.strength));
+        row('Strength', Range(settings.force.strength));
         row('Range', Range(settings.force.range));
         row('Decay', Range(settings.force.decay));
         if (ENABLE_UI_ZERO) {
@@ -788,6 +793,7 @@ window.addEventListener('load', async () => {
             for (const i of [
                 'F or tap : randomize force',
                 'P : randomize palette',
+                'M : randomize mass',
                 'R : reset random',
                 'B : reset big bang',
                 'T : freeze time',
@@ -939,12 +945,12 @@ window.addEventListener('load', async () => {
         tap.source.addListener((e) => {
             if (e.repeat == 2) {
                 settings.simulation.nspecies.value = choice(1, [2, 2], [3, 2], 4);
-                settings.runtime.touch.reset = (settings.runtime.touch.reset + 1) % 2;
                 const r = settings.runtime.touch.reset;
                 reset_dynamics(r - 1, [
                     Math.trunc(((e.x * device.pixel_ratio) - (canvas.width / 2)) * r),
                     Math.trunc(((canvas.height / 2) - (e.y * device.pixel_ratio)) * r)
                 ]);
+                settings.runtime.touch.reset = (settings.runtime.touch.reset + 1) % 2;
             } else if (e.repeat > 4) {
                 canvas.style.touchAction = (canvas.style.touchAction === '') ? 'none' : '';
             }
@@ -997,7 +1003,7 @@ window.addEventListener('load', async () => {
     wgl.addListener(wgl.EVENT.RESIZE, (w, h) => {resize(w, h);});
 
     //
-    // application
+    // run
     //
 
     const fps = Fps();

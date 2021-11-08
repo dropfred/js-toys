@@ -34,12 +34,14 @@ uniform vec2 u_gravity;
 #if defined(GRAVITY)
 uniform vec2 u_wind;
 #endif
+#if defined(BORDER) && ((BORDER == BORDER_BOUNCE_SOFT) || (BORDER == BORDER_BOUNCE_HARD))
+uniform float u_bounce_force;
+#endif
 #if defined(BOUNCE_SOFT_DYNAMIC)
 uniform float u_border;
 #endif
 uniform float u_dt;
 uniform float[MAX_SPECIES * MAX_SPECIES] u_force;
-uniform float u_force_max;
 #if defined(MASS)
 uniform float[MAX_SPECIES] u_mass;
 #endif
@@ -48,7 +50,7 @@ uniform vec2 u_half_vp;
 uniform vec2 u_scale;
 #endif
 #if defined(MAX_VELOCITY)
-uniform float u_max_velocity;
+uniform float u_velocity_max;
 #endif
 
 uniform sampler2D u_field01;
@@ -94,8 +96,6 @@ void main()
     }
 #endif
 
-    acceleration *= u_force_max;
-
 #if defined(GRAVITY)
     acceleration += u_gravity * mass;
 #endif
@@ -114,7 +114,7 @@ void main()
         if (b != vec2(0.0, 0.0))
         {
             vec2 d = min((ap - vp), vec2(BOUNCE_SOFT_DISTANCE));
-            acceleration -= b * normalize(a_position) * u_force_max * BOUNCE_SOFT_STRENGTH * d;
+            acceleration -= b * normalize(a_position) * u_bounce_force * BOUNCE_SOFT_STRENGTH * d;
         }
     }
 #endif
@@ -126,9 +126,9 @@ void main()
 #if defined(MAX_VELOCITY)
     {
         float v = length(v_velocity);
-        if (v > u_max_velocity)
+        if (v > u_velocity_max)
         {
-            v_velocity *= u_max_velocity / v;
+            v_velocity *= u_velocity_max / v;
         }
     }
 #endif    
