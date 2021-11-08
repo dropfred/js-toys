@@ -4,12 +4,11 @@ import {WGL} from './utils/wgl.js';
 import {Palette} from './utils/palette.js';
 import {Fps} from './utils/fps.js';
 import {Source, SourceValue} from './utils/source.js';
-import {opt, combine, choice, remap} from './utils/tk.js';
+import {opt, combine, choice, remap, mix} from './utils/tk.js';
 import {Pointer, Touch, Tap, Swipe, Box} from './utils/pointer.js';
 
 window.addEventListener('load', async () => {
     const ENABLE_NEGATIVE_FORCE = false;
-    const ENABLE_MASS = false;
     const ENABLE_UI_ZERO = false;
 
     function Range(value, min, max, step) {
@@ -26,12 +25,14 @@ window.addEventListener('load', async () => {
             damping    : Range(0.2, 0, 1, 0.1),
             velocity   : Range(100, 10, 500),
             gravity    : Range(0, 0, 0.5, 0.05),
+            wind       : Range(0, 0, 0.5, 0.05),
             resolution : Range(0, 0, 4),
             border     : new SourceValue('wrap'),
             random     : Source()
         },
         body : {
-            size : Range(10, 1, 50)
+            size : Range(10, 1, 50),
+            mass : Range(0, 0, 1, 0.1)
         },
         display : {
             background : [0.02, 0.02, 0.1],
@@ -53,8 +54,8 @@ window.addEventListener('load', async () => {
             time    : 0,
             dt      : Source(),
             size    : Source(),
-            forces  : Source(),
-            masses  : Source(),
+            force   : new SourceValue(),
+            mass    : new SourceValue(),
             palette : Palette(),
             freeze  : false,
             touch   : {
@@ -177,7 +178,9 @@ window.addEventListener('load', async () => {
                     `MAX_SPECIES=${settings.simulation.nspecies.max}`,
                     'MAX_VELOCITY',
                     'NORMALIZE',
-                    ENABLE_MASS ? 'MASS' : '',
+                    'GRAVITY',
+                    'WIND',
+                    'MASS',
                     // 'NOISE',
                     'BORDER=BORDER_BOUNCE_SOFT'
                 ]),
@@ -191,7 +194,9 @@ window.addEventListener('load', async () => {
                     `MAX_SPECIES=${settings.simulation.nspecies.max}`,
                     'MAX_VELOCITY',
                     'NORMALIZE',
-                    ENABLE_MASS ? 'MASS' : '',
+                    'GRAVITY',
+                    'WIND',
+                    'MASS',
                     // 'NOISE',
                     'BORDER=BORDER_WRAP'
                 ]),
@@ -207,26 +212,29 @@ window.addEventListener('load', async () => {
             )
         );
         for (const m of [material.update_dynamics_bounce, material.update_dynamics_wrap]) {
-            let a = 0;
-            m.uniform('u_field01', a++);
-            if (settings.simulation.nspecies.max > 2) {
-                m.uniform('u_field23', a++);
-            }
-            m.uniform('u_strength', settings.force.max);
-            source_uniform(settings.force.strength, m, 'u_factor');
+            m.uniform('u_field01', 0);
+            if (settings.simulation.nspecies.max > 2) {m.uniform('u_field23', 1);}
+            m.uniform('u_force_max', settings.force.range.max);
             source_uniform(settings.simulation.damping, m, 'u_damping');
             source_uniform(settings.simulation.velocity, m, 'u_max_velocity');
             source_uniform(settings.simulation.gravity, m, 'u_gravity', g => [0, -(g * settings.force.range.max)]);
+            source_uniform(settings.simulation.wind, m, 'u_wind', g => [(g * settings.force.range.max), 0]);
             source_uniform(settings.runtime.dt, m, 'u_dt');
-            source_uniform(settings.runtime.forces, m, 'u_force');
-            if (ENABLE_MASS) {
-                source_uniform(settings.runtime.masses, m, 'u_mass');
-            }
+            source_uniform(settings.body.mass, m, 'u_mass', (r) => {
+                const os = Array(settings.simulation.nspecies.max).fill(1);
+                return mix(r, os, opt(settings.runtime.mass.value, os));
+            });
+            source_uniform(settings.force.strength, m, 'u_force', (r) => {
+                const zs = Array(settings.simulation.nspecies.max).fill(0);
+                return opt(settings.runtime.force.value, zs).map(f => f * r);
+            });
         }
-        material.reset_dynamics.uniform('u_position', 1);
+        settings.runtime.mass.addListener(() => {settings.body.mass.notify();});
+        settings.runtime.force.addListener(() => {settings.force.strength.notify();});
         source_uniform(settings.simulation.velocity, material.reset_dynamics, 'u_velocity');
         source_uniform(settings.simulation.random, material.reset_dynamics, 'u_seed', r => Math.round(r * 0xffffff));
         source_uniform(settings.runtime.size, material.reset_dynamics, 'u_size', (w, h) => [(w / 2), (h / 2)]);
+        material.reset_dynamics.uniform('u_position', 1);
     }
     {
         const src = {
@@ -268,7 +276,7 @@ window.addEventListener('load', async () => {
         dynamics : [gl.createBuffer(), gl.createBuffer()]
     };
 
-    function update_buffer() {
+    function reset_buffer() {
         const d = new Float32Array(settings.simulation.nbodies.max * (2 ** settings.simulation.grow.value) * 24);
         for (const v of vbo.dynamics) {
             gl.bindBuffer(gl.ARRAY_BUFFER, v);
@@ -380,32 +388,32 @@ window.addEventListener('load', async () => {
         settings.runtime.size.notify(w, h);
     };
 
-    function update_palette() {
+    function rand_palette() {
         const cs = settings.runtime.palette(settings.simulation.nspecies.max).map(c => [... c, 1.0]).flat();
         settings.display.palette.notify(cs);
     }
 
-    function update_force() {
+    function rand_force() {
         const fs = [];
         for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
             const r = Math.random() * 0.4 + 0.1;
             for (let b = 0; b < settings.simulation.nspecies.max; ++b) {
-                fs.push((a === b) ? r : r + Math.random() * (0.9 - r) + 0.1);
+                fs.push(((a === b) ? r : r + Math.random() * (0.9 - r) + 0.1) * settings.force.strength.max);
             }
         }
-        settings.runtime.forces.notify(fs);
+        settings.runtime.force.value = fs;
         if (settings.log.info) {
             console.info('### forces', JSON.stringify(fs));
         }
         return fs;
     }
 
-    function update_mass() {
+    function rand_mass() {
         const ms = [];
         for (let i = 0; i < settings.simulation.nspecies.max; ++i) {
             ms.push(2 ** remap(Math.random(), -3, 3));
         }
-        settings.runtime.masses.notify(ms);
+        settings.runtime.mass.value = ms;
         if (settings.log.info) {
             console.info('### masses', JSON.stringify(ms));
         }
@@ -591,7 +599,7 @@ window.addEventListener('load', async () => {
 
     settings.simulation.grow.addListener(() => {
         reset_field();
-        update_buffer();
+        reset_buffer();
     });
     
     settings.simulation.resolution.addListener(() => {
@@ -695,6 +703,7 @@ window.addEventListener('load', async () => {
         ));
         row('Velocity', Range(settings.simulation.velocity));
         row('Gravity', Range(settings.simulation.gravity));
+        row('Wind', Range(settings.simulation.wind));
         row('Damping', Range(settings.simulation.damping));
         row('Grow', Range(settings.simulation.grow, 'int', 'change'));
         {
@@ -718,6 +727,7 @@ window.addEventListener('load', async () => {
         }
         row('Body');
         row('Size', Range(settings.body.size));
+        row('Mass', Range(settings.body.mass));
         row('Force');
         row('Factor', Range(settings.force.strength));
         row('Range', Range(settings.force.range));
@@ -838,7 +848,7 @@ window.addEventListener('load', async () => {
                 range.addEventListener('input', () => {
                     info.innerHTML = range.value;
                     forces[f] = parseFloat(range.value);
-                    settings.runtime.forces.notify(forces);
+                    settings.runtime.force.value = forces;
                 });
                 container.appendChild(range);
                 container.appendChild(info);
@@ -861,12 +871,14 @@ window.addEventListener('load', async () => {
             }
         };
         const reset_force = (fs) => {
-            forces = [].concat(fs);
-            for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
-                for (let b = 0; b < settings.simulation.nspecies.max; ++b) {
-                    const f = a * settings.simulation.nspecies.max + b;
-                    ranges[f].range.value = fs[f];
-                    ranges[f].info.innerHTML = ranges[f].range.value;
+            if (fs !== undefined) {
+                forces = [].concat(fs);
+                for (let a = 0; a < settings.simulation.nspecies.max; ++a) {
+                    for (let b = 0; b < settings.simulation.nspecies.max; ++b) {
+                        const f = a * settings.simulation.nspecies.max + b;
+                        ranges[f].range.value = fs[f];
+                        ranges[f].info.innerHTML = ranges[f].range.value;
+                    }
                 }
             }
         };
@@ -876,7 +888,7 @@ window.addEventListener('load', async () => {
             }
         };
         settings.simulation.nspecies.addListener(show);
-        settings.runtime.forces.addListener(reset_force);
+        settings.runtime.force.addListener(reset_force);
         settings.display.palette.addListener(reset_palette);
         show();
 
@@ -894,11 +906,11 @@ window.addEventListener('load', async () => {
             } else if (e.key.toUpperCase() === 'T') {
                 settings.runtime.freeze = !settings.runtime.freeze;
             } else if (e.key.toUpperCase() === 'P') {
-                update_palette();
+                rand_palette();
             } else if (e.key.toUpperCase() === 'F') {
-                update_force();
+                rand_force();
             } else if (e.key.toUpperCase() === 'M') {
-                update_mass();
+                rand_mass();
             } else if (e.key.toUpperCase() === 'R') {
                 settings.simulation.random.notify(Math.random());
                 reset_dynamics();
@@ -959,9 +971,9 @@ window.addEventListener('load', async () => {
             } else if (e === 'left') {
                 if (swipe.ui < 1) {++swipe.ui;}
             } else if (e === 'up') {
-                update_force();
+                rand_force();
             } else if (e === 'down') {
-                update_palette();
+                rand_palette();
             }
             ui.style.display = (swipe.ui === 1) ? 'flex' : 'none';
             edit_force.style.display = (swipe.ui === -1) ? 'block' : 'none';
@@ -1007,10 +1019,10 @@ window.addEventListener('load', async () => {
         window.requestAnimationFrame(loop);
     }
 
-    update_mass();
-    update_force();
-    update_palette();
-    update_buffer();
+    rand_mass();
+    rand_force();
+    rand_palette();
+    reset_buffer();
     // already resized thru simulation.resolution source
 
     loop();

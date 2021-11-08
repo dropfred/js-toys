@@ -27,15 +27,19 @@ out vec2 v_acceleration;
 out vec4 v_debug;
 
 uniform int u_nspecies;
-uniform float u_strength;
-uniform float u_factor;
 uniform float u_damping;
+#if defined(GRAVITY)
 uniform vec2 u_gravity;
+#endif
+#if defined(GRAVITY)
+uniform vec2 u_wind;
+#endif
 #if defined(BOUNCE_SOFT_DYNAMIC)
 uniform float u_border;
 #endif
 uniform float u_dt;
 uniform float[MAX_SPECIES * MAX_SPECIES] u_force;
+uniform float u_force_max;
 #if defined(MASS)
 uniform float[MAX_SPECIES] u_mass;
 #endif
@@ -63,6 +67,12 @@ void main()
     uv.t = 1.0 - uv.t;
 #endif
 
+#if defined(MASS)
+    float mass = u_mass[type];
+#else
+    float mass = 1.0;
+#endif
+
     vec2 acceleration = vec2(0.0);
 
     int f = type * MAX_SPECIES;
@@ -84,14 +94,14 @@ void main()
     }
 #endif
 
-    acceleration *= u_strength * u_factor;
+    acceleration *= u_force_max;
 
-    acceleration += u_gravity;
+#if defined(GRAVITY)
+    acceleration += u_gravity * mass;
+#endif
 
-#if defined(MASS)
-    float mass = u_mass[type];
-#else
-    float mass = 1.0;
+#if defined(WIND)
+    acceleration += u_wind;
 #endif
 
     acceleration /= mass;
@@ -104,7 +114,7 @@ void main()
         if (b != vec2(0.0, 0.0))
         {
             vec2 d = min((ap - vp), vec2(BOUNCE_SOFT_DISTANCE));
-            acceleration -= b * normalize(a_position) * u_strength * BOUNCE_SOFT_STRENGTH * d;
+            acceleration -= b * normalize(a_position) * u_force_max * BOUNCE_SOFT_STRENGTH * d;
         }
     }
 #endif

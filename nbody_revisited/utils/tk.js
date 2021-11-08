@@ -61,9 +61,6 @@ function * zip(a, b) {
 }
 
 function choice(... cws) {
-    if (cws.length === 0) {
-        return undefined;
-    }
     const cs = [];
     for (let wc of cws) {
         if (!(wc instanceof (Array))) {
@@ -73,7 +70,18 @@ function choice(... cws) {
             cs.push(wc[0]);
         }
     }
-    return cs[Math.trunc(Math.random() * cs.length)];
+    return ((cws.length !== 0) ? cs[Math.trunc(Math.random() * cs.length)] : undefined);
 }
 
-export {opt, flat, combine, remap, range, zip, choice};
+function mix(m, a, b) {
+    if (a instanceof (Array) && b instanceof (Array)) {
+        return (((a.length !== 0) && (b.length !== 0)) ? [... zip(a, b)].map(([a, b]) => mix(m, a, b)) : undefined);
+    } else if (a instanceof (Array)) {
+        return mix(m, a, Array(a.length).fill(b));
+    } else if (b instanceof (Array)) {
+        return mix(m, Array(b.length).fill(a), b);
+    }
+    return (((1 - m) * a) + (m * b));
+}
+
+export {opt, flat, combine, remap, range, zip, choice, mix};
