@@ -5,7 +5,7 @@ import {Source} from './source.js';
 class Pointer {
     #cbs = new Set();
 
-    static TIMEOUT = 250;
+    static TIMEOUT = 300;
 
     constructor(element, action = 'none') {
         if (action !== null) {
@@ -75,8 +75,6 @@ class Touch extends Gesture {
     }
 
     #listener(e) {
-        if (e.type === 'pointerdown') {
-        }
         if (e.isPrimary) {
             if (e.type === 'pointerdown') {
                 Object.assign(this.#touch, offset(e));
@@ -112,7 +110,7 @@ class Tap extends Gesture {
     };
 
     static TIMEOUT = Pointer.TIMEOUT;
-    static DISTANCE = 100;
+    static DISTANCE = 200;
 
     constructor(pointer) {
         super(pointer);
@@ -144,14 +142,16 @@ class Tap extends Gesture {
         } else if (e.type === 'pointerup') {
             if (this.#tap.repeat !== 0) {
                 if (
-                    ((Date.now() - this.#tap.time) < (Tap.TIMEOUT * this.#tap.repeat)) &&
+                    ((Date.now() - this.#tap.time) < (Tap.TIMEOUT * this.#tap.repeat))/* &&
+                    ((time - this.#tap.time) < (Tap.TIMEOUT * this.#tap.repeat)) &&
                     (Math.abs(e.x - this.#tap.x) < Tap.DISTANCE) &&
-                    (Math.abs(e.y - this.#tap.y) < Tap.DISTANCE)
+                    (Math.abs(e.y - this.#tap.y) < Tap.DISTANCE)*/
                 ) {
                     const tap = {repeat : this.#tap.repeat, x : this.#tap.x, y : this.#tap.y};
                     this.#tap.timeout = setTimeout(() => {
-                        Object.assign(this.#tap, offset(e));
+                        Object.assign(tap, offset(e));
                         this.source.notify(tap);
+                        this.#tap.timeout = null;
                         this.#tap.repeat = 0;
                     }, Tap.TIMEOUT);
                 } else {
