@@ -11,6 +11,34 @@ window.addEventListener('load', async () => {
     const ENABLE_NEGATIVE_FORCE = false;
     const ENABLE_UI_ZERO = false;
 
+    function check_gl() {
+        const s = gl.getError();
+        if (s !== gl.NO_ERROR) {
+            console.error('### gl error');
+            switch (s) {
+                case gl.INVALID_ENUM : console.error('### INVALID_ENUM'); break;
+                case gl.INVALID_VALUE : console.error('### INVALID_VALUE'); break;
+                case gl.INVALID_OPERATION : console.error('### INVALID_OPERATION'); break;
+                case gl.INVALID_FRAMEBUFFER_OPERATION : console.error('### INVALID_FRAMEBUFFER_OPERATION'); break;
+                case gl.OUT_OF_MEMORY : console.error('### OUT_OF_MEMORY'); break;
+                default :  console.error('### UNKNOWN ERROR');
+            }
+        }
+    }
+
+    function check_fb() {
+        const s = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (s !== gl.FRAMEBUFFER_COMPLETE) {
+            const e = (s === gl.FRAMEBUFFER_INCOMPLETE_ATTACHMENT        ) ? 'FRAMEBUFFER_INCOMPLETE_ATTACHMENT'
+                    : (s === gl.FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT) ? 'FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT'
+                    : (s === gl.FRAMEBUFFER_INCOMPLETE_DIMENSIONS        ) ? 'FRAMEBUFFER_INCOMPLETE_DIMENSIONS'
+                    : (s === gl.FRAMEBUFFER_UNSUPPORTED                  ) ? 'FRAMEBUFFER_UNSUPPORTED'
+                    : ((wgl.version >= wgl.VERSION.WGL_2) && (s === gl.FRAMEBUFFER_INCOMPLETE_MULTISAMPLE)) ?'FRAMEBUFFER_INCOMPLETE_MULTISAMPLE'
+                    : 'unknown error';
+            console.error('### incomplete framebuffer', e);
+        }
+    }
+
     function Range(value, min, max, step) {
         const r = new SourceValue(value, v => Math.min(Math.max(v, min), max));
         Object.assign(r, {min, max, step});
@@ -366,19 +394,7 @@ window.addEventListener('load', async () => {
         gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.TEXTURE_2D, t, 0);
     }
     gl.bindTexture(gl.TEXTURE_2D, null);
-    {
-        const s = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-        if (s !== gl.FRAMEBUFFER_COMPLETE) {
-            const e = (s === gl.FRAMEBUFFER_INCOMPLETE_ATTACHMENT        ) ? 'FRAMEBUFFER_INCOMPLETE_ATTACHMENT'
-                    : (s === gl.FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT) ? 'FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT'
-                    : (s === gl.FRAMEBUFFER_INCOMPLETE_DIMENSIONS        ) ? 'FRAMEBUFFER_INCOMPLETE_DIMENSIONS'
-                    : (s === gl.FRAMEBUFFER_UNSUPPORTED                  ) ? 'FRAMEBUFFER_UNSUPPORTED'
-                    : (s === gl.FRAMEBUFFER_INCOMPLETE_ATTACHMENT        ) ? 'FRAMEBUFFER_INCOMPLETE_ATTACHMENT'
-                    : ((wgl.version >= wgl.VERSION.WGL_2) && (s === gl.FRAMEBUFFER_INCOMPLETE_MULTISAMPLE)) ?'FRAMEBUFFER_INCOMPLETE_MULTISAMPLE'
-                    : 'unknown error';
-            console.error('### incomplete framebuffer', e);
-        }
-    }
+    check_fb();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
     function resize(w, h) {
@@ -429,15 +445,10 @@ window.addEventListener('load', async () => {
                 :                                                   material.update_dynamics_wrap;
         gl.useProgram(m.program);
         {
-            let a = 0;
-            gl.activeTexture(gl.TEXTURE0 + a++);
+            gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, field.textures[0]);
-            if (settings.simulation.nspecies.max > 2) {
-                gl.activeTexture(gl.TEXTURE0 + a++);
-                gl.bindTexture(gl.TEXTURE_2D, field.textures[1]);
-            }
-            gl.activeTexture(gl.TEXTURE0 + a);
-            gl.bindTexture(gl.TEXTURE_2D, null);
+            gl.activeTexture(gl.TEXTURE1);
+            gl.bindTexture(gl.TEXTURE_2D, (settings.simulation.nspecies.max > 2) ? field.textures[1] : null);
         }
         gl.bindVertexArray(render.update);
         gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, render.feedback);
@@ -460,8 +471,8 @@ window.addEventListener('load', async () => {
 
     function update_field(render, reset = false) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, field.fb);
-        gl.viewport(0, 0, field.size.width, field.size.height);
         gl.drawBuffers([gl.COLOR_ATTACHMENT0, (reset || (settings.simulation.nspecies.value > 2)) ? gl.COLOR_ATTACHMENT1 : gl.NONE]);
+        gl.viewport(0, 0, field.size.width, field.size.height);
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
