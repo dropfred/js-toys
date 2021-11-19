@@ -989,6 +989,7 @@ window.addEventListener('load', async () => {
                 if (swipe.ui < 1) {++swipe.ui;}
             } else if (e === 'up') {
                 rand_force();
+                rand_mass();
             } else if (e === 'down') {
                 rand_palette();
             }
