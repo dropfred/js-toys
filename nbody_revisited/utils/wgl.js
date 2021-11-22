@@ -182,10 +182,10 @@ function WGL(gl, options = {}) {
                     case gl.FLOAT_MAT4   : gl.uniformMatrix4fv(u, false, value); break;
                     default : if (version >= VERSION.WGL_2) {
                         switch (i.type) {
-                            case gl.UNSIGNED_INT      : gl.uniform1iv(u, value); break;
-                            case gl.UNSIGNED_INT_VEC2 : gl.uniform2iv(u, value); break;
-                            case gl.UNSIGNED_INT_VEC3 : gl.uniform3iv(u, value); break;
-                            case gl.UNSIGNED_INT_VEC4 : gl.uniform4iv(u, value); break;
+                            case gl.UNSIGNED_INT      : gl.uniform1uiv(u, value); break;
+                            case gl.UNSIGNED_INT_VEC2 : gl.uniform2uiv(u, value); break;
+                            case gl.UNSIGNED_INT_VEC3 : gl.uniform3uiv(u, value); break;
+                            case gl.UNSIGNED_INT_VEC4 : gl.uniform4uiv(u, value); break;
                             case gl.SAMPLER_3D        : gl.uniform1iv(u, value); break;
                             case gl.FLOAT_MAT2x3      : gl.uniformMatrix2x3fv(u, false, value); break;
                             case gl.FLOAT_MAT2x4      : gl.uniformMatrix2x4fv(u, false, value); break;
@@ -217,10 +217,10 @@ function WGL(gl, options = {}) {
                     case gl.FLOAT_MAT4   : gl.uniformMatrix4fv(u, false, [... value]); break;
                     default : if (version >= VERSION.WGL_2) {
                         switch (i.type) {
-                            case gl.UNSIGNED_INT      : gl.uniform1i(u, ... value); break;
-                            case gl.UNSIGNED_INT_VEC2 : gl.uniform2i(u, ... value); break;
-                            case gl.UNSIGNED_INT_VEC3 : gl.uniform3i(u, ... value); break;
-                            case gl.UNSIGNED_INT_VEC4 : gl.uniform4i(u, ... value); break;
+                            case gl.UNSIGNED_INT      : gl.uniform1ui(u, ... value); break;
+                            case gl.UNSIGNED_INT_VEC2 : gl.uniform2ui(u, ... value); break;
+                            case gl.UNSIGNED_INT_VEC3 : gl.uniform3ui(u, ... value); break;
+                            case gl.UNSIGNED_INT_VEC4 : gl.uniform4ui(u, ... value); break;
                             case gl.SAMPLER_3D        : gl.uniform1i(u, ... value); break;
                             case gl.FLOAT_MAT2x3      : gl.uniformMatrix2x3fv(u, false, [... value]); break;
                             case gl.FLOAT_MAT2x4      : gl.uniformMatrix2x4fv(u, false, [... value]); break;

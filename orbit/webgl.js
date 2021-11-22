@@ -124,6 +124,7 @@ function WebGL(gl, options) {
             if (i === undefined) {
                 throw 'invalid uniform ' + name;
             }
+            gl.useProgram(program);
             if ((value.length === 1) && (value[0] instanceof (Array))) {
                 value = value[0];
                 switch (i.type) {
@@ -141,12 +142,22 @@ function WebGL(gl, options) {
                     case gl.BOOL_VEC2    : gl.uniform2iv(u, value); break;
                     case gl.BOOL_VEC3    : gl.uniform3iv(u, value); break;
                     case gl.BOOL_VEC4    : gl.uniform4iv(u, value); break;
+                    case gl.FLOAT_MAT2   : gl.uniformMatrix2fv(u, false, value); break;
+                    case gl.FLOAT_MAT3   : gl.uniformMatrix3fv(u, false, value); break;
+                    case gl.FLOAT_MAT4   : gl.uniformMatrix4fv(u, false, value); break;
                     default : if (version >= VERSION.WGL_2) {
                         switch (i.type) {
-                            case gl.UNSIGNED_INT      : gl.uniform1iv(u, value); break;
-                            case gl.UNSIGNED_INT_VEC2 : gl.uniform2iv(u, value); break;
-                            case gl.UNSIGNED_INT_VEC3 : gl.uniform3iv(u, value); break;
-                            case gl.UNSIGNED_INT_VEC4 : gl.uniform4iv(u, value); break;
+                            case gl.UNSIGNED_INT      : gl.uniform1uiv(u, value); break;
+                            case gl.UNSIGNED_INT_VEC2 : gl.uniform2uiv(u, value); break;
+                            case gl.UNSIGNED_INT_VEC3 : gl.uniform3uiv(u, value); break;
+                            case gl.UNSIGNED_INT_VEC4 : gl.uniform4uiv(u, value); break;
+                            case gl.SAMPLER_3D        : gl.uniform1iv(u, value); break;
+                            case gl.FLOAT_MAT2x3      : gl.uniformMatrix2x3fv(u, false, value); break;
+                            case gl.FLOAT_MAT2x4      : gl.uniformMatrix2x4fv(u, false, value); break;
+                            case gl.FLOAT_MAT3x2      : gl.uniformMatrix3x2fv(u, false, value); break;
+                            case gl.FLOAT_MAT3x4      : gl.uniformMatrix3x4fv(u, false, value); break;
+                            case gl.FLOAT_MAT4x2      : gl.uniformMatrix4x2fv(u, false, value); break;
+                            case gl.FLOAT_MAT4x3      : gl.uniformMatrix4x3fv(u, false, value); break;
                         }
                     }
                 }
@@ -166,12 +177,22 @@ function WebGL(gl, options) {
                     case gl.BOOL_VEC2    : gl.uniform2i(u, ... value); break;
                     case gl.BOOL_VEC3    : gl.uniform3i(u, ... value); break;
                     case gl.BOOL_VEC4    : gl.uniform4i(u, ... value); break;
+                    case gl.FLOAT_MAT2   : gl.uniformMatrix2fv(u, false, [... value]); break;
+                    case gl.FLOAT_MAT3   : gl.uniformMatrix3fv(u, false, [... value]); break;
+                    case gl.FLOAT_MAT4   : gl.uniformMatrix4fv(u, false, [... value]); break;
                     default : if (version >= VERSION.WGL_2) {
                         switch (i.type) {
-                            case gl.UNSIGNED_INT      : gl.uniform1i(u, ... value); break;
-                            case gl.UNSIGNED_INT_VEC2 : gl.uniform2i(u, ... value); break;
-                            case gl.UNSIGNED_INT_VEC3 : gl.uniform3i(u, ... value); break;
-                            case gl.UNSIGNED_INT_VEC4 : gl.uniform4i(u, ... value); break;
+                            case gl.UNSIGNED_INT      : gl.uniform1ui(u, ... value); break;
+                            case gl.UNSIGNED_INT_VEC2 : gl.uniform2ui(u, ... value); break;
+                            case gl.UNSIGNED_INT_VEC3 : gl.uniform3ui(u, ... value); break;
+                            case gl.UNSIGNED_INT_VEC4 : gl.uniform4ui(u, ... value); break;
+                            case gl.SAMPLER_3D        : gl.uniform1i(u, ... value); break;
+                            case gl.FLOAT_MAT2x3      : gl.uniformMatrix2x3fv(u, false, [... value]); break;
+                            case gl.FLOAT_MAT2x4      : gl.uniformMatrix2x4fv(u, false, [... value]); break;
+                            case gl.FLOAT_MAT3x2      : gl.uniformMatrix3x2fv(u, false, [... value]); break;
+                            case gl.FLOAT_MAT3x4      : gl.uniformMatrix3x4fv(u, false, [... value]); break;
+                            case gl.FLOAT_MAT4x2      : gl.uniformMatrix4x2fv(u, false, [... value]); break;
+                            case gl.FLOAT_MAT4x3      : gl.uniformMatrix4x3fv(u, false, [... value]); break;
                         }
                     }
                 }
