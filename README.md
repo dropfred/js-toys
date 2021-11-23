@@ -62,6 +62,14 @@ Solar system orbits from planets point of view. Originally written using canvas 
 
 _Disclaimer: This is just a toy, not a realistic simulation. In particular, orbits are assumed circular, and all in the same plane. Also, sizes and distances are obvously not to scale, although relative sizes and distances of planets are approximately realistic (but not the ratio distance / size)._
 
+## blob
+
+![](screenshots/blob_1.jpg)
+
+[live](https://dropfred.github.io/js-toys/blob/index.html)
+
+Minimalist metaballs toy, no controls whatsoever. It uses WebGL 2 just because it is simpler to draw a quad. For some reasons, the fragment shader loop is incorrectly handled by some mobile devices, I had to unroll it.
+
 ## ez-pw
 
 Easy password generator bookmarklet.
