@@ -33,7 +33,7 @@ Few explanations for the demo's settings:
 - When it makes sense, parameters' units are in pixels for length, and seconds for time. As an example, velocity is expressed in pixels/second.
 - The simulation's grow parameter doubles the number of bodies each step up. Be cautious with this one!
 - Force decay is the attenuation power. A power of 0 is no decay, 1 is linear, 2 is quadratic, and so on. In practice, 1 works just fine, and 0 may lead to instabilities when the range is low.
-- Resolution is the resolution factor used for the force field map. Max resolution is equal to the canvas size, and each step down halfs the resolution. Be cautious with this parameter too, updating force field map is a costly operation. Note that this parameter defaults to the lowest level, and it may lead to visible artifacts, in particular in how the bodies arrange themselves in a squarish manner when the force range is low.
+- Resolution is the resolution factor used for the force field map. Max resolution is equal to the canvas size, and each step down halves the resolution. Be cautious with this parameter too, updating force field map is a costly operation. Note that this parameter defaults to the lowest level, and it may lead to visible artifacts, in particular in how the bodies arrange themselves in a squarish manner when the force range is low.
 
 Some tips for a maximum of bodies :
   - Set the number of species to one or two.
@@ -43,12 +43,12 @@ Some tips for a maximum of bodies :
 
 <i>The UI is not designed for mobile devices. However, miniminal support is provided:
 
-- touch and move: adds force
-- double tap: resets dynamics (alternate between random and big bang reset mode)
-- swipe top: randomizes forces
-- swipe bottom: randomizes palette
+- touch and move: add force
+- double tap: reset dynamics (alternate between random and big bang reset mode)
+- swipe top: randomize forces
+- swipe bottom: randomize palette
 - swipe left/right: toggle ui and force editor
-- zoom: adds/removes bodies
+- zoom: add/remove bodies
 
 In order to not interfer with the os/browser behaviour about gestures, canvas' action is disabled. It means that you are not able to pan or zoom when inside the canvas. If you are stuck in the canvas after a ui zoom, tap frenetically 5 times, it gives the gesture control back to the browser.</i>
 
