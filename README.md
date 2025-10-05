@@ -18,15 +18,15 @@ Interactions between species are random, and some sets are more fun than others.
 
 ![](screenshots/n-body_revisited_1.jpg) ![](screenshots/n-body_revisited_2.jpg) ![](screenshots/n-body_revisited_3.jpg)
 
-_Note: this toy requires WebGL 2 for OpenGL ES 3 transform feedback, plus the EXT_color_buffer_float and EXT_float_blend extensions. Extensions are required because vanilla OpenGL ES 3 forbids integer textures blending and rendered float textures._
+_Note: this toy requires WebGL 2 for OpenGL ES 3 transform feedback, plus the EXT_color_buffer_float and EXT_float_blend extensions._
 
 [live](https://dropfred.github.io/js-toys/nbody_revisited/index.html)
 
 Retake on the n-body toy.
 
-The initial n-body simulation is quite funny, but the very limited number of bodies involved is very frustrating. The two main reasons for that is, first the naive brute force approach with n^2 complexity, and second the fact that drawing to the canvas using the 2d renderer is actually slow. So I decided to test another approach using WebGL 2. The simulation now runs entirely on the GPU, and the complexity is linear. On a computer with a decent graphic card, depending on the settings, more than 300,000 bodies can be simulated at 60 fps, and more than 700,000 bodies at 30 fps, with nearly 0% CPU utilization. Also, it now comes with a lot more parameters to play with. Note that using a totally different method for computing the dynamics, the results are quite different. As a notable difference, collisions are currently not handled in the WebGL version, and this is why attractive forces are not used in this version.
+The initial n-body simulation is quite funny, but the very limited number of bodies involved is very frustrating. The two main reasons for that is, first the naive brute force approach with n^2 complexity, and second the fact that drawing to the canvas using the 2d renderer is actually slow. So I decided to test another approach using WebGL 2. The simulation now runs entirely on the GPU, and the complexity is linear. Even with a low-end graphic card, depending on the settings, about 400,000 bodies can be simulated at 60 fps, with nearly 0% CPU utilization. Also, it now comes with a lot more parameters to play with. Collisions are not handled in the WebGL version, and this is why attractive forces are not used in this version.
 
-Although absolutely not perfect (there are some severe limitations, and very occasionally some minor bugs), I am quite satisfied with the result. Despite using very basic newtonian physics and crude approximations, results are very organic.
+Although absolutely not perfect, I am quite satisfied with the result. Despite using very basic newtonian physics and crude approximations, results are very organic.
 
 Few explanations for the demo's settings:
 
