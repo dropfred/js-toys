@@ -70,6 +70,12 @@ _Disclaimer: This is just a toy, not a realistic simulation. In particular, orbi
 
 Minimalist metaballs toy, no controls whatsoever. It uses WebGL 2 just because it is simpler to draw a quad. For some reasons, the fragment shader loop is incorrectly handled by some mobile devices, I had to unroll it.
 
+# ez-lock
+
+Basic text encryption/decryption
+
+[live](https://dropfred.github.io/js-toys/ez-lock/index.html)
+
 ## ez-pw
 
 Easy password generator bookmarklet.

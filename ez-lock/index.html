@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style type="text/css">
+        * {font-family: sans-serif;}
+        html, body {height:100%; margin: 0; padding: 0; border: 0;}
+    </style>
+    <script type="module" src="ez-lock.js"></script>
+</head>
+<body>
+    <!-- https://css-tricks.com/snippets/css/a-guide-to-flexbox/ -->
+    <dialog>
+        <div style="display: flex; flex-direction: column; gap: 1em;">
+            <label for="pw-enter">Enter password:</label><input type="password" id="pw-enter" size="20" />
+            <label for="pw-confirm">Confirm password:</label><input type="password" id="pw-confirm" size="20" />
+        </div>
+    </dialog>
+
+    <div style="height: 100%; display: flex; flex-direction: column;">
+        <textarea id="txt" placeholder="Edit/Drop" wrap="off" spellcheck="false" style="margin:1em; padding: 1em; height: 100%; resize: none;"></textarea>
+        <div style="display: flex; justify-content: center; gap: 1em; margin:1em;">
+            <button id="clipboard" title="Copy to clipboard" style="width: 3em; font-size: x-large;">📋</button>
+            <button id="save" title="Save to file" style="width: 3em; font-size: x-large;">💾</button>
+        </div>
+    </div>
+</body>
+</html>

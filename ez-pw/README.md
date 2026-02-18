@@ -31,14 +31,14 @@ There is no UI to customize the password generation, but you can tweak the bookm
 - `copy`: If `true`, the generated password is copied to the clipboard, defaults to `false`.
 - `fill`: If `true`, the generated password is copied to the page's password field (if present and unique), defaults to `false`.
 - `hide`: If `true`, the page is hidden during the bookmarlet's execution, defaults to `false`.
-- `syms`: Symbols used to generate the password, defaults to `'&#@$*=!_+-'`.
+- `syms`: Symbols used to generate the password, defaults to `&#@$*=!_+-`.
 - `salt`: Additionnal text used to generate the password, defaults to the empty string.
 
 As an example, if you want to generate 20 characters long password, and automatically fill the page's password field, your should change the bookmarklet from `javascript:...({})` to `javascript:...({size:20,fill:true})`.
 
 ## Caveats
 
-- The password emulation works quite poorly, I personally currently prefer to use the basic version.
-- Depending of the style sheets used by the hosting page, the bookmarklet may not be displayed correctly. In this case, the `hide` option may be usefull.
+- The password emulation works quite poorly, I personally prefer to use the basic version.
+- Depending of the styles used by the hosting page, the bookmarklet may not be displayed correctly (or even not displayed at all). In this case, the `hide` option may help.
 - Some sites require a very limited set of symbols, use the `syms` option in this case.
 - Tested against Chrome desktop and Firefox desktop only, doesn't work on mobile browsers.
