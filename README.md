@@ -72,7 +72,7 @@ Minimalist metaballs toy, no controls whatsoever. It uses WebGL 2 just because i
 
 # ez-lock
 
-Basic text encryption/decryption
+Basic encryption/decryption pad.
 
 [live](https://dropfred.github.io/js-toys/ez-lock/index.html)
 

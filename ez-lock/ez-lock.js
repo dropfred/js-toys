@@ -67,42 +67,43 @@ window.addEventListener("load", async () => {
         return new Promise((resolve, reject) => {
             const dialog = document.querySelector("dialog");
             const [pwe, pwc] = document.querySelectorAll("dialog input");
-            const pwcl = document.querySelectorAll("dialog label")[1];
+            const pw = pwe.value;
+            const [bto, btc] = document.querySelectorAll("dialog button");
+            const [lbe, lbc] = document.querySelectorAll("dialog div > div");
 
             const clear = () => {
-                pwe.removeEventListener("keypress", keypress);
-                pwc.removeEventListener("keypress", keypress);
+                dialog.close();
+                pwe.removeEventListener("keyup", keyup);
+                pwc.removeEventListener("keyup", keyup);
                 dialog.removeEventListener("cancel", cancel);
             }
 
-            const keypress = evt => {
-                if (evt.key === "Enter") {
-                    if (pwe.value.length === 0) {
-                        pwe.focus();
-                    } else if (confirm && (pwc.value.length === 0)) {
-                        pwc.focus();
-                    } else if (!confirm || (pwe.value == pwc.value)) {
-                        clear();
-                        dialog.close();
-                        resolve(pwe.value);
-                    }
-                }
+            const ok = () => {
+                clear();
+                resolve(pwe.value);
             };
 
-            const cancel = evt => {
-                pwe.value = "";
+            const cancel = () => {
                 clear();
+                pwe.value = pw;
                 reject();
+            };
+
+            const keyup = evt => {
+                const valid = (pwe.value.length === 0) ? false : confirm ? (pwe.value === pwc.value) : true;
+                bto.disabled = !valid;
+                if (valid && evt.key == "Enter") ok();
             };
 
             if (!confirm) pwe.value = "";
             pwc.value = "";
-            pwc.style.display = confirm? "" : "none";
-            pwcl.style.display = confirm? "" : "none";
-            pwe.addEventListener("keypress", keypress);
-            pwc.addEventListener("keypress", keypress);
+            lbc.style.display = confirm? "" : "none";
+            bto.disabled = true;
             dialog.addEventListener("cancel", cancel);
-
+            pwe.addEventListener("keyup", keyup);
+            pwc.addEventListener("keyup", keyup);
+            bto.addEventListener("click", ok);
+            btc.addEventListener("click",cancel);
             dialog.showModal();
         });
     }
