@@ -12,6 +12,8 @@ window.addEventListener("load", async () => {
     const DATA_OFFSET = IV_OFFSET + IV_SIZE;
 
     const TEXT = document.getElementById("txt");
+    const [PASSWORD, ERROR] = document.querySelectorAll("dialog");
+
 
     const FORMAT = 40;
 
@@ -65,17 +67,18 @@ window.addEventListener("load", async () => {
 
     function get_password(confirm = false) {
         return new Promise((resolve, reject) => {
-            const dialog = document.querySelector("dialog");
-            const [pwe, pwc] = document.querySelectorAll("dialog input");
-            const pw = pwe.value;
-            const [bto, btc] = document.querySelectorAll("dialog button");
-            const [lbe, lbc] = document.querySelectorAll("dialog div > div");
+            const [pwe, pwc] = PASSWORD.querySelectorAll("input");
+            const [bto, btc] = PASSWORD.querySelectorAll("button");
+            const grpc = PASSWORD.querySelectorAll("div > div")[1];
+            const pwbk = pwe.value;
 
             const clear = () => {
-                dialog.close();
+                PASSWORD.close();
+                PASSWORD.removeEventListener("cancel", cancel);
                 pwe.removeEventListener("keyup", keyup);
                 pwc.removeEventListener("keyup", keyup);
-                dialog.removeEventListener("cancel", cancel);
+                bto.removeEventListener("click", ok);
+                btc.removeEventListener("click", cancel);
             }
 
             const ok = () => {
@@ -85,26 +88,26 @@ window.addEventListener("load", async () => {
 
             const cancel = () => {
                 clear();
-                pwe.value = pw;
+                pwe.value = pwbk;
                 reject();
             };
 
             const keyup = evt => {
                 const valid = (pwe.value.length === 0) ? false : confirm ? (pwe.value === pwc.value) : true;
                 bto.disabled = !valid;
-                if (valid && evt.key == "Enter") ok();
+                if (valid && (evt.key == "Enter")) ok();
             };
 
             if (!confirm) pwe.value = "";
             pwc.value = "";
-            lbc.style.display = confirm? "" : "none";
+            grpc.style.display = confirm? "" : "none";
             bto.disabled = true;
-            dialog.addEventListener("cancel", cancel);
+            PASSWORD.addEventListener("cancel", cancel);
             pwe.addEventListener("keyup", keyup);
             pwc.addEventListener("keyup", keyup);
             bto.addEventListener("click", ok);
-            btc.addEventListener("click",cancel);
-            dialog.showModal();
+            btc.addEventListener("click", cancel);
+            PASSWORD.showModal();
         });
     }
 
@@ -115,7 +118,12 @@ window.addEventListener("load", async () => {
             ).then(data => {
                 if (clear) TEXT.value = "";
                 TEXT.value = TEXT.value.slice(0, TEXT.selectionStart) + data + TEXT.value.slice(TEXT.selectionEnd);
-            }).catch(_ => {TEXT.value = "<error>";});
+            }).catch(e => {
+                if (e !== undefined) {
+                    ERROR.querySelector("div > div").innerHTML = "Invalid password or<br />corrupted data.";
+                    ERROR.showModal();
+                }
+            });
         } else {
             TEXT.value = data;
         }
@@ -152,7 +160,7 @@ window.addEventListener("load", async () => {
         return txt;
     }
 
-    document.getElementById("save").addEventListener("click", _ => {
+    document.getElementById("save").addEventListener("click", () => {
         get_password(true).then(pw =>
             encrypt(pw, TEXT.value)
         ).then(data64 => {
@@ -168,7 +176,7 @@ window.addEventListener("load", async () => {
         }).catch(e => {console.log(e);});
     });
 
-    document.getElementById("clipboard").addEventListener("click", _ => {
+    document.getElementById("clipboard").addEventListener("click", () => {
         get_password(true).then(pw =>
             encrypt(pw, TEXT.value)
         ).then(data64 => {
@@ -177,7 +185,6 @@ window.addEventListener("load", async () => {
     });
 
     TEXT.value = "";
-
     TEXT.addEventListener("paste", evt => {
         const data = evt.clipboardData.getData("text/plain");
         if (data.startsWith(MAGIC)) {
@@ -185,4 +192,6 @@ window.addEventListener("load", async () => {
             update(data, false).catch(e => {console.error(e);});
         }
     });
+
+    ERROR.querySelector("button").addEventListener("click", () => {ERROR.close();});
 });
