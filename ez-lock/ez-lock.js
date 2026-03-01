@@ -173,7 +173,7 @@ window.addEventListener("load", async () => {
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
-        }).catch(e => {console.log(e);});
+        }).catch(e => {if (e !== undefined) console.log(e);});
     });
 
     document.getElementById("clipboard").addEventListener("click", () => {
@@ -181,7 +181,7 @@ window.addEventListener("load", async () => {
             encrypt(pw, TEXT.value)
         ).then(data64 => {
             navigator.clipboard.writeText(format(MAGIC + data64, FORMAT));
-        }).catch(e => {console.log(e);});
+        }).catch(e => {if (e !== undefined) console.log(e);});
     });
 
     TEXT.value = "";
