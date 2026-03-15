@@ -70,11 +70,37 @@ _Disclaimer: This is just a toy, not a realistic simulation. In particular, orbi
 
 Minimalist metaballs toy, no controls whatsoever. It uses WebGL 2 just because it is simpler to draw a quad. For some reasons, the fragment shader loop is incorrectly handled by some mobile devices, I had to unroll it.
 
-# ez-lock
+## ez-lock
 
-Basic encryption/decryption pad.
+Super simple encryption/decryption pad as a bookmarklet.
+
+The code looks a bit odd because I tried to balance between readable and minifier friendly code.
+
+### Usage
+
+Assuming default options:
+
+- `📋` / `Ctrl-C`: Encrypt text and copy to clipboard.
+- `💾` / `Ctrl-S`: Encrypt text and save to file.
+- `Ctrl-V`: Decrypt clipboard file or text if necessary, and insert it at current position.
+- `Drop`: Decrypt dropped file or text if necessary, and replace current text.
 
 [live](https://dropfred.github.io/js-toys/ez-lock/index.html)
+
+### Code customization:
+
+- `MAGIC`: Prefix string used to distinguish Base64-encoded encrypted text from plain text. Defaults to `🔒`.
+- `BOOKMARKLET`: Specify whether the code is intended to be used as a bookmarklet. Defaults to `true`.
+- `DOTS`: Use `password` inputs if `true`, plain text otherwise. Defaults to `true`.
+- `FMT`: Encrypted data is formatted if `true`. Defaults to `true`.
+- `DND`: Drag and drop support if `true`. Defaults to `true`.
+- `KBD`: Support for `ctrl-c` / `ctrl-v` and `ctrl-s` if `true`. Defaults to `true`.
+- `DBG`: Log errors if `true`. Defaults to `false`.
+- `SETTINGS`: specify default text area size, and Base64-encoded data line length (if `FMT` is on). Defaults to `{cols: 40, rows: 30, fmt: 80}`
+
+Disabling options reduces the minified size.
+
+If you prefer to run the script as a page instead of a bookmarklet, set `BOOKMARKLET` to `false`, and add `<script>import("./ez-log.js");</script>` in the HTML code.
 
 ## ez-pw
 
