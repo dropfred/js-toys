@@ -2,34 +2,22 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
-    <style type="text/css">
-        * {font-family: sans-serif;}
-        html, body {height:100%; margin: 0; padding: 0; border: 0;}
-    </style>
-    <script type="module" src="ez-lock.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
 </head>
 <body>
-    <dialog style="margin-top: 10%;">
-        <div style="display: flex; flex-direction: column; gap: 1em;">
-            <div><label for="pw-enter">Enter password:</label><br /><input type="password" id="pw-enter" size="20" /></div>
-            <div><label for="pw-confirm">Confirm password:</label><br /><input type="password" id="pw-confirm" size="20" /></div>
-            <div style="display: flex; gap: 1em;"><button style="width: 100%;">Ok</button><button style="width: 100%;">Cancel</button></div>
-        </div>
-    </dialog>
-    <dialog style="margin-top: 10%;">
-        <div style="display: flex; flex-direction: column; gap: 1em;">
-            <div></div>
-            <button style="width: 100%;">Close</button>
-        </div>
-    </dialog>
-
-    <div style="height: 100%; display: flex; flex-direction: column;">
-        <textarea id="txt" placeholder="Edit/Drop" wrap="off" spellcheck="false" style="margin:1em; padding: 1em; height: 100%; resize: none;"></textarea>
-        <div style="display: flex; justify-content: center; gap: 1em; margin:1em;">
-            <button id="clipboard" title="Copy to clipboard" style="width: 3em; font-size: x-large;">📋</button>
-            <button id="save" title="Save to file" style="width: 3em; font-size: x-large;">💾</button>
-        </div>
-    </div>
+    <h1>Host page</h1>
+    <p>
+        <div>The data below is decrypted as <i>secret</i> using password <i><code>1234</code></i>.</div>
+        <div style="margin: 2em;"><code style="white-space: pre; padding: 0.5em; border: solid; border-radius: 0.5em;">🔒SlxNQPKgblpvZ1XrXKIERTH8wYExXnTuHpQ1sxqroMtsgIfJiLINIJKVTYO7ZKO/PJk=</code></div>
+    </p>
+    <p>
+        <button onclick="javascript:import(`./ez-lock.js?do_not_cache=${new Date().getTime()}`);">Test plain source</button>
+    </p>
+    <p>
+        Test minified source as <a id="bookmarklet">bookmarket</a> (<i><code>Right-Click > Bookmark Link...</code></i> to install).
+    </p>
+    <script>
+        fetch("./ez-lock-min.js").then(src => src.text()).then(src => {document.getElementById("bookmarklet").href = src;});
+    </script>
 </body>
 </html>
