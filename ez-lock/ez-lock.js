@@ -1,7 +1,65 @@
+// https://www.digitalocean.com/community/tools/minify
+// https://minify-js.com/
+// http://www.httpvshttps.com/
+// const -> let
+
 "use strict";
 
-window.addEventListener("load", async () => {
-    const MAGIC = "🔒";
+(_ => {
+    //
+    // options
+    //
+
+    const MAGIC = "🔒"; // encrypted data magic prefix
+
+    const BOOKMARKLET = true;  // exit button
+    const DOTS        = true;  // use password inputs
+    const FMT         = true;  // format encrypted data
+    const DND         = true;  // handle drag and drop
+    const KBD         = true;  // handle ctrl-c and ctrl-s
+    const DBG         = false; // log errors
+
+    const SETTINGS = {
+        // default number of columns
+        cols: 40,
+        // default number of rows
+        rows: 30,
+        // formatted line length
+        fmt: 80
+    };
+
+    //
+    // help minifier
+    //
+
+    const DOC = document;
+    const BODY = DOC.body;
+    const DIV = "div";
+    const BUTTON = "button";
+    const DIALOG = "dialog";
+    const TEXTAREA = "textarea";
+    const INPUT = `<input size="20" ${DOTS? 'type="password"' : ''} />`;
+    const CLICK = "click";
+    const KEYUP = "keyup";
+    const CANCEL = "cancel";
+    const COLUMN = "flex-direction: column;";
+    const createElement = (t, c) => {
+        const e = DOC.createElement(t);
+        if (c) e.innerHTML = c;
+        return e;
+    }
+    // const addClass = (e, c) => e.classList.add(c);
+    const append = (e, c) => {e.appendChild(c);};
+    const remove = (e, c) => {e.removeChild(c);};
+    const addListener = (e, t, h) => {e.addEventListener(t, h);};
+    const removeListener = (e, t, h) => e.removeEventListener(t, h);
+    const querySelectorAll = (e, s) => e.querySelectorAll(s);
+    const preventDefault = e => e.preventDefault();
+    const log = (...xs) => console.log(...xs);
+
+    //
+    // encrypt/decrypt stuff
+    //
 
     const SALT_OFFSET = 0;
     const SALT_SIZE = 16;
@@ -10,12 +68,6 @@ window.addEventListener("load", async () => {
     const IV_SIZE = 12;
 
     const DATA_OFFSET = IV_OFFSET + IV_SIZE;
-
-    const TEXT = document.getElementById("txt");
-    const [PASSWORD, ERROR] = document.querySelectorAll("dialog");
-
-
-    const FORMAT = 40;
 
     async function get_key(password, salt) {
         let key = await crypto.subtle.importKey(
@@ -65,91 +117,75 @@ window.addEventListener("load", async () => {
         );
     }
 
-    function get_password(confirm = false) {
-        return new Promise((resolve, reject) => {
-            const [pwe, pwc] = PASSWORD.querySelectorAll("input");
-            const [bto, btc] = PASSWORD.querySelectorAll("button");
-            const grpc = PASSWORD.querySelectorAll("div > div")[1];
-            const pwbk = pwe.value;
+    //
+    // ui
+    //
 
-            const clear = () => {
-                PASSWORD.close();
-                PASSWORD.removeEventListener("cancel", cancel);
-                pwe.removeEventListener("keyup", keyup);
-                pwc.removeEventListener("keyup", keyup);
-                bto.removeEventListener("click", ok);
-                btc.removeEventListener("click", cancel);
-            }
-
-            const ok = () => {
-                clear();
-                resolve(pwe.value);
-            };
-
-            const cancel = () => {
-                clear();
-                pwe.value = pwbk;
-                reject();
-            };
-
-            const keyup = evt => {
-                const valid = (pwe.value.length === 0) ? false : confirm ? (pwe.value === pwc.value) : true;
-                bto.disabled = !valid;
-                if (valid && (evt.key == "Enter")) ok();
-            };
-
-            if (!confirm) pwe.value = "";
-            pwc.value = "";
-            grpc.style.display = confirm? "" : "none";
-            bto.disabled = true;
-            PASSWORD.addEventListener("cancel", cancel);
-            pwe.addEventListener("keyup", keyup);
-            pwc.addEventListener("keyup", keyup);
-            bto.addEventListener("click", ok);
-            btc.addEventListener("click", cancel);
-            PASSWORD.showModal();
-        });
+    // save and hide host page
+    const BK = {ss: [], ds: []};
+    for (const e of BODY.children) {
+        BK.ds.push({e: e, d: e.style.display});
+        e.style.display = "none";
+    }
+    for (const s of DOC.styleSheets) {
+        BK.ss.push({s: s, d: s.disabled});
+        s.disabled = true;
     }
 
-    async function update(data, clear = true) {
-        if (data.startsWith(MAGIC)) {
-            get_password().then(pw =>
-                decrypt(pw, data.slice(MAGIC.length))
-            ).then(data => {
-                if (clear) TEXT.value = "";
-                TEXT.value = TEXT.value.slice(0, TEXT.selectionStart) + data + TEXT.value.slice(TEXT.selectionEnd);
-            }).catch(e => {
-                if (e !== undefined) {
-                    ERROR.querySelector("div > div").innerHTML = "Invalid password or<br />corrupted data.";
-                    ERROR.showModal();
-                }
-            });
-        } else {
-            TEXT.value = data;
+    const close = () => {
+        remove(DOC.head, STYLE);
+        remove(BODY, TOP);
+        remove(BODY, DLG_PASSWORD);
+        remove(BODY, DLG_ERROR);
+
+        for (const b of BK.ss) {
+            b.s.disabled = b.d;
         }
-    }
+        for (const b of BK.ds) {
+            b.e.style.display = b.d;
+        }
+    };
 
-    {
-        const drop = document.body;
+    const STYLE = createElement("style", "* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog button {width: 100%;}");
+    append(DOC.head, STYLE);
 
-        drop.addEventListener("dragover", (evt) => {
-            evt.preventDefault();
-        });
+    const TOP = createElement(DIV);
+    TOP.style.justifyContent = "center";
+    append(BODY, TOP);
 
-        drop.addEventListener("drop", (evt) => {
-            evt.preventDefault();
-            const data = evt.dataTransfer;
-            const txt = data.getData("text/plain");
-            (
-                (txt.length > 0)         ? Promise.resolve(txt) :
-                (data.files.length === 1)? data.files.item(0).text() :
-                                           Promise.reject("unhandled drop")
-            ).then(txt => {update(txt);}).catch(e => {console.error(e);});
-        });
-    }
+    const MAIN = createElement(DIV);
+    MAIN.style.cssText = `${COLUMN} max-width: 100%;`
+    append(MAIN, createElement(DIV, `<button>📋</button><button>💾</button>${BOOKMARKLET ? '<span style="flex-grow: 1;"></span><button>❌</button>': ''}`));
+    append(MAIN, createElement(DIV, `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`));
+    append(TOP, MAIN);
 
-    function format(txt, length) {
-        if (length != 0) {
+    const DLG_PASSWORD = createElement(
+        DIALOG,
+        `<div style="${COLUMN}">` +
+          `<p>Enter password:<br />${INPUT}</p>` +
+          (DOTS? `<p>Confirm password:<br />${INPUT}</p>` : '') +
+          '<div><button>Ok</button><button>Cancel</button></div>' +
+        '</div>'
+    );
+    append(BODY, DLG_PASSWORD);
+
+    const DLG_ERROR = createElement(
+        DIALOG,
+        `<div style="${COLUMN}">` +
+          '<p>Invalid password or<br />corrupted data.</p>' +
+          '<p><button>Close</buton></p>' +
+        '</div>'
+    );
+    DLG_ERROR.style.borderColor = "red";
+    append(BODY, DLG_ERROR);
+
+    const [MENU_COPY, MENU_SAVE, MENU_QUIT] = querySelectorAll(MAIN, BUTTON);
+    const [TEXT] = querySelectorAll(MAIN, TEXTAREA);
+    const [PW_OK, PW_CANCEL] = querySelectorAll(DLG_PASSWORD, BUTTON);
+    const [PW_ENTER, PW_CONFIRM] = querySelectorAll(DLG_PASSWORD, "input");
+
+    const format = (txt, length) => {
+        if (FMT) if (length != 0) {
             let ftxt = "";
             for (let b = 0, e = length; b < txt.length; b = e, e += length) {
                 if (b != 0) ftxt += "\n";
@@ -158,40 +194,158 @@ window.addEventListener("load", async () => {
             txt = ftxt;
         }
         return txt;
+    };
+
+    const get_password = (confirm=true) => {
+        return new Promise((resolve, reject) => {
+            const clear = () => {
+                removeListener(DLG_PASSWORD, CANCEL, cancel);
+                removeListener(PW_ENTER, KEYUP, keyup);
+                if (DOTS) if (confirm) removeListener(PW_CONFIRM, KEYUP, keyup);
+                removeListener(PW_OK, CLICK, ok);
+                removeListener(PW_CANCEL, CLICK, cancel);
+                DLG_PASSWORD.close();
+            };
+
+            const ok = () => {
+                clear();
+                resolve(PW_ENTER.value);
+            };
+
+            const cancel = () => {
+                clear();
+                reject();
+            };
+
+            const keyup = evt => {
+                let valid = PW_ENTER.value.length > 0;
+                if (DOTS) if (confirm) {
+                    valid &&= PW_ENTER.value == PW_CONFIRM.value;
+                }
+                PW_OK.disabled = !valid;
+                if (valid && evt.key === "Enter") ok();
+            };
+
+            addListener(DLG_PASSWORD, CANCEL, cancel);
+            addListener(PW_ENTER, KEYUP, keyup);
+            if (DOTS) {
+                if (confirm) addListener(PW_CONFIRM, KEYUP, keyup);
+                PW_CONFIRM.parentElement.style.display = confirm? "" : "none";
+            }
+            addListener(PW_OK, CLICK, ok);
+            addListener(PW_CANCEL, CLICK, cancel);
+
+            PW_ENTER.value = "";
+            if (DOTS) PW_CONFIRM.value = "";
+            PW_OK.disabled = true;
+
+            DLG_PASSWORD.showModal();
+        });
+    };
+
+    async function update(data, clear) {
+        const update = txt => {
+            if (clear) TEXT.value = "";
+            const position = TEXT.selectionStart;
+            TEXT.value = TEXT.value.slice(0, TEXT.selectionStart) + txt + TEXT.value.slice(TEXT.selectionEnd);
+            TEXT.selectionStart = TEXT.selectionEnd = position + txt.length;
+        };
+
+        const items = [...data.items];
+        (
+            (items.some(i => i.kind === "string"))? Promise.resolve(data.getData("text/plain")) :
+            (items.some(i => i.kind === "file"))  ? data.files.item(0).text() :
+                                                    Promise.reject(/*ignore*/)
+        ).then(data => {
+            if (data.startsWith(MAGIC)) {
+                get_password(false).then(pw =>
+                    decrypt(pw, data.slice(MAGIC.length))
+                ).then(txt => {
+                    update(txt);
+                }).catch(e => {
+                    if (e) {
+                        DLG_ERROR.showModal();
+                    }
+                });
+            } else {
+                update(data);
+            }
+        }).catch(e => DBG && e && log(e));
     }
 
-    document.getElementById("save").addEventListener("click", () => {
-        get_password(true).then(pw =>
+    //
+    // callbacks
+    //
+
+    const copy = () => {
+        get_password().then(pw =>
             encrypt(pw, TEXT.value)
         ).then(data64 => {
-            const blob = new Blob([format(MAGIC + data64, FORMAT)], {type: "text/plain"});
+            navigator.clipboard.writeText(format(MAGIC + data64, SETTINGS.fmt));
+        }).catch(e => DBG && e && log(e));
+    };
+
+    const save = () => {
+        get_password().then(pw =>
+            encrypt(pw, TEXT.value)
+        ).then(data64 => {
+            const blob = new Blob([format(MAGIC + data64, SETTINGS.fmt)], {type: "text/plain"});
             const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
+            const a = createElement("a");
             a.href = url;
             a.download = "ez-lock.txt";
-            document.body.appendChild(a);
+            append(BODY, a);
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
-        }).catch(e => {if (e !== undefined) console.log(e);});
+        }).catch(e => DBG && e && log(e));
+    };
+
+    if (BOOKMARKLET) {
+        addListener(MENU_QUIT, CLICK, close);
+    }
+
+    addListener(querySelectorAll(DLG_ERROR, BUTTON)[0], CLICK, _ => {DLG_ERROR.close();});
+
+    addListener(MENU_COPY, CLICK, copy);
+
+    addListener(MENU_SAVE, CLICK, save);
+
+    addListener(TEXT, "paste", evt => {
+        preventDefault(evt);
+        update(evt.clipboardData, false);
     });
 
-    document.getElementById("clipboard").addEventListener("click", () => {
-        get_password(true).then(pw =>
-            encrypt(pw, TEXT.value)
-        ).then(data64 => {
-            navigator.clipboard.writeText(format(MAGIC + data64, FORMAT));
-        }).catch(e => {if (e !== undefined) console.log(e);});
-    });
+    if (DND) {
+        addListener(BODY, "dragover", preventDefault);
 
-    TEXT.value = "";
-    TEXT.addEventListener("paste", evt => {
-        const data = evt.clipboardData.getData("text/plain");
-        if (data.startsWith(MAGIC)) {
-            evt.preventDefault();
-            update(data, false).catch(e => {console.error(e);});
-        }
-    });
+        addListener(BODY, "drop", evt => {
+            preventDefault(evt);
+            update(evt.dataTransfer, true);
+        });
+    }
 
-    ERROR.querySelector("button").addEventListener("click", () => {ERROR.close();});
-});
+    if (KBD) {
+        addListener(TEXT, "copy", evt => {
+            preventDefault(evt);
+            copy();
+        });
+
+        addListener(TEXT, "keydown", evt => {
+            if (evt.ctrlKey && (evt.key == "s")) {
+                preventDefault(evt);
+                save();
+            }
+        });
+    }
+
+    //
+    // check if crypto is available, disable everything otherwise
+    //
+
+    if (!crypto.subtle) {
+        [MENU_COPY, MENU_SAVE, TEXT].forEach(e => e.disabled = true);
+        TEXT.placeholder = "Insecure context"
+        TEXT.style.color = "red";
+    }
+})();
