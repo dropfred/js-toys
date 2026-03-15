@@ -1,8 +1,3 @@
-// https://www.digitalocean.com/community/tools/minify
-// https://minify-js.com/
-// http://www.httpvshttps.com/
-// const -> let
-
 "use strict";
 
 (_ => {
