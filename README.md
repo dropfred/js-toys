@@ -72,7 +72,7 @@ Minimalist metaballs toy, no controls whatsoever. It uses WebGL 2 just because i
 
 ## ez-lock
 
-Super simple encryption/decryption pad as a bookmarklet.
+Super basic encryption/decryption pad as a bookmarklet.
 
 The code looks a bit odd because I tried to balance between readable and minifier friendly code.
 
@@ -101,6 +101,10 @@ Assuming default options:
 Disabling options reduces the minified size.
 
 If you prefer to run the script as a page instead of a bookmarklet, set `BOOKMARKLET` to `false`, and add `<script>import("./ez-log.js");</script>` in the HTML code.
+
+### Known caveats
+
+- The host page returns to the top when the bookmarklet is closed.
 
 ## ez-pw
 
