@@ -106,12 +106,6 @@ If you prefer to run the script as a page instead of a bookmarklet, set `BOOKMAR
 
 - The host page returns to the top when the bookmarklet is closed.
 
-## ez-pw
-
-Easy password generator bookmarklet.
-
 ## gravity
 
-Game embryo around gravity. The goal is to go from a place to another using gravity assistance.
-
-## ants
+Game embryo. The goal is to go from a place to another using gravity assistance.
