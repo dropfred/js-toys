@@ -72,16 +72,18 @@ Minimalist metaballs toy, no controls whatsoever. It uses WebGL 2 just because i
 
 ## ez-lock
 
-Super basic encryption/decryption pad as a bookmarklet.
+Simple encryption/decryption pad as a bookmarklet. Well, it's not really a bookmarklet in the sense that it doesn't care of the host page's content, it's more like a mini web-context app embedded in a link.
 
-The code looks a bit odd because I tried to balance between readable and minifier friendly code.
+_Note: Since `crypto` is used, a secure context (https) is required._
+
+There are no standard rules regarding link length, and the browsers I'm concerned with have limits far  greater than the size of this code. I still tried to reduce the minified size, and this is why the code might look weird, even if I tried to balance between readable and minifiers friendly code.
 
 ### Usage
 
 Assuming default options:
 
-- `📋` / `Ctrl-C`: Encrypt text and copy to clipboard.
 - `💾` / `Ctrl-S`: Encrypt text and save to file.
+- `📋` / `Ctrl-Shit-C`: Encrypt text and copy to clipboard.
 - `Ctrl-V`: Decrypt clipboard file or text if necessary, and insert it at current position.
 - `Drop`: Decrypt dropped file or text if necessary, and replace current text.
 
@@ -99,8 +101,6 @@ Assuming default options:
 - `SETTINGS`: specify default text area size, and Base64-encoded data line length (if `FMT` is on). Defaults to `{cols: 40, rows: 30, fmt: 80}`
 
 Disabling options reduces the minified size.
-
-If you prefer to run the script as a page instead of a bookmarklet, set `BOOKMARKLET` to `false`, and add `<script>import("./ez-log.js");</script>` in the HTML code.
 
 ### Known caveats
 

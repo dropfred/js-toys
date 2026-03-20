@@ -51,6 +51,7 @@
     const querySelectorAll = (e, s) => e.querySelectorAll(s);
     const preventDefault = e => e.preventDefault();
     const log = (...xs) => console.log(...xs);
+    const length = xs => xs.length;
 
     //
     // encrypt/decrypt stuff
@@ -117,9 +118,9 @@
     //
 
     // save and hide host page
-    const BK = {ss: [], ds: []};
+    const BK = {ss: [], cs: []};
     for (const e of BODY.children) {
-        BK.ds.push({e: e, d: e.style.display});
+        BK.cs.push({e: e, d: e.style.display});
         e.style.display = "none";
     }
     for (const s of DOC.styleSheets) {
@@ -136,12 +137,12 @@
         for (const b of BK.ss) {
             b.s.disabled = b.d;
         }
-        for (const b of BK.ds) {
+        for (const b of BK.cs) {
             b.e.style.display = b.d;
         }
     };
 
-    const STYLE = createElement("style", "* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog button {width: 100%;}");
+    const STYLE = createElement("style", `* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog ${BUTTON} {width: 100%;}`);
     append(DOC.head, STYLE);
 
     const TOP = createElement(DIV);
@@ -150,31 +151,31 @@
 
     const MAIN = createElement(DIV);
     MAIN.style.cssText = `${COLUMN} max-width: 100%;`
-    append(MAIN, createElement(DIV, `<button>📋</button><button>💾</button>${BOOKMARKLET ? '<span style="flex-grow: 1;"></span><button>❌</button>': ''}`));
+    append(MAIN, createElement(DIV, `<${BUTTON}>💾</${BUTTON}><${BUTTON}>📋</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`));
     append(MAIN, createElement(DIV, `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`));
     append(TOP, MAIN);
 
     const DLG_PASSWORD = createElement(
         DIALOG,
-        `<div style="${COLUMN}">` +
+        `<${DIV} style="${COLUMN}">` +
           `<p>Enter password:<br />${INPUT}</p>` +
           (DOTS? `<p>Confirm password:<br />${INPUT}</p>` : '') +
-          '<div><button>Ok</button><button>Cancel</button></div>' +
-        '</div>'
+          `<${DIV}><${BUTTON}>Ok</${BUTTON}><${BUTTON}>Cancel</${BUTTON}></${DIV}>` +
+        `</${DIV}>`
     );
     append(BODY, DLG_PASSWORD);
 
     const DLG_ERROR = createElement(
         DIALOG,
-        `<div style="${COLUMN}">` +
+        `<${DIV} style="${COLUMN}">` +
           '<p>Invalid password or<br />corrupted data.</p>' +
-          '<p><button>Close</buton></p>' +
-        '</div>'
+          `<p><${BUTTON}>Close</${BUTTON}></p>` +
+        `</${DIV}>`
     );
     DLG_ERROR.style.borderColor = "red";
     append(BODY, DLG_ERROR);
 
-    const [MENU_COPY, MENU_SAVE, MENU_QUIT] = querySelectorAll(MAIN, BUTTON);
+    const [MENU_SAVE, MENU_COPY, MENU_QUIT] = querySelectorAll(MAIN, BUTTON);
     const [TEXT] = querySelectorAll(MAIN, TEXTAREA);
     const [PW_OK, PW_CANCEL] = querySelectorAll(DLG_PASSWORD, BUTTON);
     const [PW_ENTER, PW_CONFIRM] = querySelectorAll(DLG_PASSWORD, "input");
@@ -242,7 +243,7 @@
         const update = txt => {
             if (clear) TEXT.value = "";
             const position = TEXT.selectionStart;
-            TEXT.value = TEXT.value.slice(0, TEXT.selectionStart) + txt + TEXT.value.slice(TEXT.selectionEnd);
+            TEXT.value = TEXT.value.slice(0, position) + txt + TEXT.value.slice(TEXT.selectionEnd);
             TEXT.selectionStart = TEXT.selectionEnd = position + txt.length;
         };
 
@@ -273,8 +274,10 @@
     //
 
     const copy = () => {
-        get_password().then(pw =>
-            encrypt(pw, TEXT.value)
+        get_password().then(pw => {
+            const b = TEXT.selectionStart, e = TEXT.selectionEnd;
+            return encrypt(pw, (b == e) ? TEXT.value : TEXT.value.slice(b, e));
+        }
         ).then(data64 => {
             navigator.clipboard.writeText(format(MAGIC + data64, SETTINGS.fmt));
         }).catch(e => DBG && e && log(e));
@@ -321,15 +324,14 @@
     }
 
     if (KBD) {
-        addListener(TEXT, "copy", evt => {
-            preventDefault(evt);
-            copy();
-        });
-
         addListener(TEXT, "keydown", evt => {
             if (evt.ctrlKey && (evt.key == "s")) {
                 preventDefault(evt);
                 save();
+            }
+            if (evt.ctrlKey && (evt.key == "C")) {
+                preventDefault(evt);
+                copy();
             }
         });
     }
