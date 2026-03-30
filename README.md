@@ -87,7 +87,7 @@ Assuming default options:
 - `Ctrl-V`: Decrypt clipboard file or text if necessary, and insert it at current position.
 - `Drop`: Decrypt dropped file or text if necessary, and replace current text.
 
-[live](https://dropfred.github.io/js-toys/ez-lock/index.html)
+[live / install](https://dropfred.github.io/js-toys/ez-lock/index.html)
 
 ### Code customization:
 

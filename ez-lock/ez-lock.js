@@ -151,7 +151,8 @@
 
     const MAIN = createElement(DIV);
     MAIN.style.cssText = `${COLUMN} max-width: 100%;`
-    append(MAIN, createElement(DIV, `<${BUTTON}>💾</${BUTTON}><${BUTTON}>📋</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`));
+    // 🔗 ⚓ 📄
+    append(MAIN, createElement(DIV, `<${BUTTON}>📋</${BUTTON}><${BUTTON}>🔗</${BUTTON}><${BUTTON}>💾</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`));
     append(MAIN, createElement(DIV, `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`));
     append(TOP, MAIN);
 
@@ -175,7 +176,7 @@
     DLG_ERROR.style.borderColor = "red";
     append(BODY, DLG_ERROR);
 
-    const [MENU_SAVE, MENU_COPY, MENU_QUIT] = querySelectorAll(MAIN, BUTTON);
+    const [MENU_COPY, MENU_LINK, MENU_SAVE, MENU_QUIT] = querySelectorAll(MAIN, BUTTON);
     const [TEXT] = querySelectorAll(MAIN, TEXTAREA);
     const [PW_OK, PW_CANCEL] = querySelectorAll(DLG_PASSWORD, BUTTON);
     const [PW_ENTER, PW_CONFIRM] = querySelectorAll(DLG_PASSWORD, "input");
@@ -283,6 +284,16 @@
         }).catch(e => DBG && e && log(e));
     };
 
+    const link = () => {
+        get_password().then(pw => {
+            const b = TEXT.selectionStart, e = TEXT.selectionEnd;
+            return encrypt(pw, (b == e) ? TEXT.value : TEXT.value.slice(b, e));
+        }
+        ).then(data64 => {
+            console.log('javascript:navigator.clipboard.writeText("' + MAGIC + data64 + '");');
+        }).catch(e => DBG && e && log(e));
+    };
+
     const save = () => {
         get_password().then(pw =>
             encrypt(pw, TEXT.value)
@@ -306,6 +317,8 @@
     addListener(querySelectorAll(DLG_ERROR, BUTTON)[0], CLICK, _ => {DLG_ERROR.close();});
 
     addListener(MENU_COPY, CLICK, copy);
+
+    addListener(MENU_LINK, CLICK, link);
 
     addListener(MENU_SAVE, CLICK, save);
 
