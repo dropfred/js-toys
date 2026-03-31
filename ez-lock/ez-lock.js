@@ -133,6 +133,7 @@
         remove(BODY, TOP);
         remove(BODY, DLG_PASSWORD);
         remove(BODY, DLG_ERROR);
+        remove(BODY, DLG_LINK);
 
         for (const b of BK.ss) {
             b.s.disabled = b.d;
@@ -151,8 +152,8 @@
 
     const MAIN = createElement(DIV);
     MAIN.style.cssText = `${COLUMN} max-width: 100%;`
-    // 🔗 ⚓ 📄
-    append(MAIN, createElement(DIV, `<${BUTTON}>📋</${BUTTON}><${BUTTON}>🔗</${BUTTON}><${BUTTON}>📄</${BUTTON}><${BUTTON}>💾</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`));
+    // append(MAIN, createElement(DIV, `<${BUTTON}>📋</${BUTTON}><${BUTTON}>🔗</${BUTTON}><${BUTTON}>📄</${BUTTON}><${BUTTON}>💾</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`));
+    append(MAIN, createElement(DIV, `<${BUTTON}>📋</${BUTTON}><${BUTTON}>🔗</${BUTTON}><${BUTTON}>💾</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`));
     append(MAIN, createElement(DIV, `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`));
     append(TOP, MAIN);
 
@@ -176,10 +177,22 @@
     DLG_ERROR.style.borderColor = "red";
     append(BODY, DLG_ERROR);
 
-    const [MENU_COPY, MENU_LINK, MENU_PAGE, MENU_SAVE, MENU_QUIT] = querySelectorAll(MAIN, BUTTON);
+    const DLG_LINK = createElement(
+        DIALOG,
+        `<${DIV} style="${COLUMN}">` +
+          '<p><a href="">link</a></p>' +
+          // '<p><i><code>Right-Click > Bookmark Link...</code></i></p>' +
+          `<p><${BUTTON}>Close</${BUTTON}></p>` +
+        `</${DIV}>`
+    );
+    append(BODY, DLG_LINK);
+
+    const [MENU_COPY, MENU_LINK/*, MENU_PAGE*/, MENU_SAVE, MENU_QUIT] = querySelectorAll(MAIN, BUTTON);
     const [TEXT] = querySelectorAll(MAIN, TEXTAREA);
     const [PW_OK, PW_CANCEL] = querySelectorAll(DLG_PASSWORD, BUTTON);
     const [PW_ENTER, PW_CONFIRM] = querySelectorAll(DLG_PASSWORD, "input");
+
+    const [LINK] = querySelectorAll(DLG_LINK, "a");
 
     const format = (txt, length) => {
         if (FMT) if (length != 0) {
@@ -290,21 +303,27 @@
             return encrypt(pw, (b == e) ? TEXT.value : TEXT.value.slice(b, e));
         }
         ).then(data64 => {
-            console.log('javascript:navigator.clipboard.writeText("' + MAGIC + data64 + '");');
+            // const a = createElement("a");
+            // a.innerHTML = "secret";
+            // a.href = "javascript:" + encodeURIComponent('navigator.clipboard.writeText("' + MAGIC + data64 + '");');
+            // append(MAIN, a);
+            LINK.href = "javascript:" + encodeURIComponent('navigator.clipboard.writeText("' + MAGIC + data64 + '");');
+            DLG_LINK.showModal();
         }).catch(e => DBG && e && log(e));
     };
 
-    const page = () => {
-        get_password().then(pw => {
-            const b = TEXT.selectionStart, e = TEXT.selectionEnd;
-            return encrypt(pw, (b == e) ? TEXT.value : TEXT.value.slice(b, e));
-        }
-        ).then(data64 => {
-            // data:text/html;charset=utf-8,%3Chtml%3E%3Ctitle%3EColor Picker%3C%2Ftitle%3E%3Cinput type%3D"color"%3E%3C%2Fhtml%3E
-            // data:text/html;charset=utf-8,%3Chtml%3E%3Cbody%3E%F0%9F%94%925BF2TPqrQmXIJ0%2BVJpwTpUCMcs2XP6LjnYEwTKU9tVHJD5J%2Br3BU2QfWTfr1u%2Fou9sI%3D%3C%2Fbody%3E%3C%2Fhtml%3
-            console.log("data:text/html;charset=utf-8," + encodeURIComponent("<html><body>" +  MAGIC + data64 + "</body></html>"));
-        }).catch(e => DBG && e && log(e));
-    };
+    // const page = () => {
+    //     get_password().then(pw => {
+    //         const b = TEXT.selectionStart, e = TEXT.selectionEnd;
+    //         return encrypt(pw, (b == e) ? TEXT.value : TEXT.value.slice(b, e));
+    //     }
+    //     ).then(data64 => {
+    //         const a = createElement("a");
+    //         a.innerHTML = "secret";
+    //         a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(MAGIC + data64);
+    //         append(MAIN, a);
+    //     }).catch(e => DBG && e && log(e));
+    // };
 
     const save = () => {
         get_password().then(pw =>
@@ -328,11 +347,13 @@
 
     addListener(querySelectorAll(DLG_ERROR, BUTTON)[0], CLICK, _ => {DLG_ERROR.close();});
 
+    addListener(querySelectorAll(DLG_LINK, BUTTON)[0], CLICK, _ => {DLG_LINK.close();});
+
     addListener(MENU_COPY, CLICK, copy);
 
     addListener(MENU_LINK, CLICK, link);
 
-    addListener(MENU_PAGE, CLICK, page);
+    // addListener(MENU_PAGE, CLICK, page);
 
     addListener(MENU_SAVE, CLICK, save);
 
