@@ -35,21 +35,21 @@
     const KEYUP = "keyup";
     const CANCEL = "cancel";
     const COLUMN = "flex-direction: column;";
-    const createElement = (t, c) => {
-        const e = DOC.createElement(t);
-        if (c) e.innerHTML = c;
-        return e;
-    }
     // const createElement = (t, c) => {
     //     const e = DOC.createElement(t);
-    //     if (c) {
-    //         if (c.id   ) e.id = c.id;
-    //         if (c.class) e.classList.add(c.class);
-    //         if (c.style) e.style.cssText += c.style;
-    //         if (c.inner) e.innerHTML = c.inner;
-    //     }
+    //     if (c) e.innerHTML = c;
     //     return e;
-    // };
+    // }
+    const createElement = (t, c) => {
+        const e = DOC.createElement(t);
+        if (c) {
+            if (c.id   ) e.id = c.id;
+            if (c.class) e.classList.add(c.class);
+            if (c.style) e.style.cssText += c.style;
+            if (c.inner) e.innerHTML = c.inner;
+        }
+        return e;
+    };
     const append = (e, ...cs) => {for (const c of cs) e.appendChild(c); return e;};
     const remove = (e, ...cs) => {for (const c of cs) e.removeChild(c); return e;};
     const addListener = (e, t, h) => {e.addEventListener(t, h);};
@@ -146,48 +146,52 @@
         }
     };
 
-    const STYLE = createElement("style", `* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog ${BUTTON} {width: 100%;}`);
+    const STYLE = createElement("style", {inner: `* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog ${BUTTON} {width: 100%;}`});
     append(DOC.head, STYLE);
 
     const TOP = createElement(DIV);
     TOP.style.justifyContent = "center";
     append(BODY, TOP);
 
-    const MAIN = createElement(DIV);
-    MAIN.style.cssText = `${COLUMN} max-width: 100%;`
-    append(MAIN, createElement(DIV, `<${BUTTON}>📋</${BUTTON}><${BUTTON}>🔗</${BUTTON}><${BUTTON}>📄</${BUTTON}><${BUTTON}>💾</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`));
-    append(MAIN, createElement(DIV, `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`));
+    const MAIN = createElement(DIV, {style: `${COLUMN} max-width: 100%;`});
+    append(MAIN, createElement(DIV, {inner: `<${BUTTON}>📋</${BUTTON}><${BUTTON}>🔗</${BUTTON}><${BUTTON}>📄</${BUTTON}><${BUTTON}>💾</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`}));
+    append(MAIN, createElement(DIV, {inner: `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`}));
     append(TOP, MAIN);
 
     const DLG_PASSWORD = createElement(
-        DIALOG,
-        `<${DIV} style="${COLUMN}">` +
-          `<p>Enter password:<br />${INPUT}</p>` +
-          (DOTS? `<p>Confirm password:<br />${INPUT}</p>` : '') +
-          `<${DIV}><${BUTTON}>Ok</${BUTTON}><${BUTTON}>Cancel</${BUTTON}></${DIV}>` +
-        `</${DIV}>`
+        DIALOG, {
+            inner:
+                `<${DIV} style="${COLUMN}">` +
+                `<p>Enter password:<br />${INPUT}</p>` +
+                (DOTS? `<p>Confirm password:<br />${INPUT}</p>` : '') +
+                `<${DIV}><${BUTTON}>Ok</${BUTTON}><${BUTTON}>Cancel</${BUTTON}></${DIV}>` +
+                `</${DIV}>`
+        }
     );
-    append(BODY, DLG_PASSWORD);
 
     const DLG_ERROR = createElement(
-        DIALOG,
-        `<${DIV} style="${COLUMN}">` +
-          '<p>Invalid password or<br />corrupted data.</p>' +
-          `<p><${BUTTON}>Close</${BUTTON}></p>` +
-        `</${DIV}>`
+        DIALOG, {
+            inner:
+                `<${DIV} style="${COLUMN}">` +
+                '<p>Invalid password or<br />corrupted data.</p>' +
+                `<p><${BUTTON}>Close</${BUTTON}></p>` +
+                `</${DIV}>`,
+            style: "border-color: red;"
+        }
     );
-    DLG_ERROR.style.borderColor = "red";
-    append(BODY, DLG_ERROR);
 
     const DLG_LINK = createElement(
-        DIALOG,
-        `<${DIV} style="${COLUMN}">` +
-          '<span>Save data:</span>' +
-          '<a href="/">bookmark</a>' +
-          `<${BUTTON}>Close</${BUTTON}>` +
-        `</${DIV}>`
+        DIALOG, {
+            inner:
+                `<${DIV} style="${COLUMN}">` +
+                '<span>Save data:</span>' +
+                '<a href="/">bookmark</a>' +
+                `<${BUTTON}>Close</${BUTTON}>` +
+                `</${DIV}>`
+        }
     );
-    append(BODY, DLG_LINK);
+
+    append(BODY, DLG_PASSWORD, DLG_ERROR, DLG_LINK);
 
     const [MENU_COPY, MENU_LINK, MENU_PAGE, MENU_SAVE, MENU_QUIT] = querySelectors(MAIN, BUTTON);
     const [TEXT] = querySelectors(MAIN, TEXTAREA);
