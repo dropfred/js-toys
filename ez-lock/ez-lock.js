@@ -40,8 +40,18 @@
         if (c) e.innerHTML = c;
         return e;
     }
-    const append = (e, c) => {e.appendChild(c);};
-    const remove = (e, c) => {e.removeChild(c);};
+    // const createElement = (t, c) => {
+    //     const e = DOC.createElement(t);
+    //     if (c) {
+    //         if (c.id   ) e.id = c.id;
+    //         if (c.class) e.classList.add(c.class);
+    //         if (c.style) e.style.cssText += c.style;
+    //         if (c.inner) e.innerHTML = c.inner;
+    //     }
+    //     return e;
+    // };
+    const append = (e, ...cs) => {for (const c of cs) e.appendChild(c); return e;};
+    const remove = (e, ...cs) => {for (const c of cs) e.removeChild(c); return e;};
     const addListener = (e, t, h) => {e.addEventListener(t, h);};
     const removeListener = (e, t, h) => e.removeEventListener(t, h);
     const querySelectors = (e, s) => e.querySelectorAll(s);
