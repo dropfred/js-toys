@@ -149,8 +149,7 @@
     append(BODY, TOP);
 
     const MAIN = append(createElement(DIV, {style: `${COLUMN} max-width: 100%;`}),
-        createElement(DIV, {inner: `<${BUTTON}>📋</${BUTTON}><${BUTTON}>🔗</${BUTTON}><${BUTTON}>📄</${BUTTON}><${BUTTON}>💾</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`}),
-        // createElement(DIV, {inner: `${["📋", "🔗", "📄", "💾"].reduce((a, c) => a + `<${BUTTON}>` + c + `</${BUTTON}>`)}${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`}),
+        createElement(DIV, {inner: `${["📋", "🔗", "📄", "💾"].reduce(((a, c) => a + "<button>" + c + "</button>"), "")}${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`}),
         createElement(DIV, {inner: `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`})
     );
     append(TOP, MAIN);
