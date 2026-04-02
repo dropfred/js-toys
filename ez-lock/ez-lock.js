@@ -26,10 +26,6 @@
 
     const DOC = document;
     const BODY = DOC.body;
-    const DIV = "div";
-    const BUTTON = "button";
-    const DIALOG = "dialog";
-    const TEXTAREA = "textarea";
     const INPUT = `<input size="20" ${DOTS? 'type="password"' : ''} />`;
     const CLICK = "click";
     const KEYUP = "keyup";
@@ -142,56 +138,56 @@
         }
     };
 
-    const STYLE = createElement("style", {inner: `* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog ${BUTTON} {width: 100%;}`});
+    const STYLE = createElement("style", {inner: "* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog button {width: 100%;}"});
     append(DOC.head, STYLE);
  
-    const TOP = createElement(DIV, {style: "justify-content: center;"});
+    const TOP = createElement("div", {style: "justify-content: center;"});
     append(BODY, TOP);
 
-    const MAIN = append(createElement(DIV, {style: `${COLUMN} max-width: 100%;`}),
-        createElement(DIV, {inner: `${["📋", "🔗", "📄", "💾"].reduce(((a, c) => a + "<button>" + c + "</button>"), "")}${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`}),
-        createElement(DIV, {inner: `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`})
+    const MAIN = append(createElement("div", {style: `${COLUMN} max-width: 100%;`}),
+        createElement("div", {inner: `${["📋", "🔗", "📄", "💾"].reduce(((a, c) => a + "<button>" + c + "</button>"), "")}${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><button>❌</button>`: ''}`}),
+        createElement("div", {inner: `<textarea rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></textarea>`})
     );
     append(TOP, MAIN);
 
     const DLG_PASSWORD = createElement(
-        DIALOG, {
+        "dialog", {
             inner:
-                `<${DIV} style="${COLUMN}">` +
+                `<div style="${COLUMN}">` +
                     `<p>Enter password:<br />${INPUT}</p>` +
                     (DOTS? `<p>Confirm password:<br />${INPUT}</p>` : '') +
-                    `<${DIV}><${BUTTON}>Ok</${BUTTON}><${BUTTON}>Cancel</${BUTTON}></${DIV}>` +
-                `</${DIV}>`
+                    "<div><button>Ok</button><button>Cancel</button></div>" +
+                "</div>"
         }
     );
 
     const DLG_ERROR = createElement(
-        DIALOG, {
+        "dialog", {
             inner:
-                `<${DIV} style="${COLUMN}">` +
-                    '<p>Invalid password or<br />corrupted data.</p>' +
-                    `<p><${BUTTON}>Close</${BUTTON}></p>` +
-                `</${DIV}>`,
+                `<div style="${COLUMN}">` +
+                    "<p>Invalid password or<br />corrupted data.</p>" +
+                    "<p><button>Close</button></p>" +
+                "</div>",
             style: "border-color: red;"
         }
     );
 
     const DLG_LINK = createElement(
-        DIALOG, {
+        "dialog", {
             inner:
-                `<${DIV} style="${COLUMN}">` +
-                    '<span>Save data:</span>' +
+                `<div style="${COLUMN}">` +
+                    "<span>Save data:</span>" +
                     '<a href="/">bookmark</a>' +
-                    `<${BUTTON}>Close</${BUTTON}>` +
-                `</${DIV}>`
+                    "<button>Close</button>" +
+                "</div>"
         }
     );
 
     append(BODY, DLG_PASSWORD, DLG_ERROR, DLG_LINK);
 
-    const [MENU_COPY, MENU_LINK, MENU_PAGE, MENU_SAVE, MENU_QUIT] = querySelectors(MAIN, BUTTON);
-    const [TEXT] = querySelectors(MAIN, TEXTAREA);
-    const [PW_OK, PW_CANCEL] = querySelectors(DLG_PASSWORD, BUTTON);
+    const [MENU_COPY, MENU_LINK, MENU_PAGE, MENU_SAVE, MENU_QUIT] = querySelectors(MAIN, "button");
+    const [TEXT] = querySelectors(MAIN, "textarea");
+    const [PW_OK, PW_CANCEL] = querySelectors(DLG_PASSWORD, "button");
     const [PW_ENTER, PW_CONFIRM] = querySelectors(DLG_PASSWORD, "input");
 
     const [LINK] = querySelectors(DLG_LINK, "a");
@@ -306,6 +302,7 @@
         }
         ).then(data64 => {
             LINK.href = "javascript:" + encodeURIComponent('navigator.clipboard.writeText("' + MAGIC + data64 + '");');
+            // LINK.href = "javascript:" + encodeURIComponent(`navigator.clipboard.writeText("${MAGIC + data64}");`);
             DLG_LINK.showModal();
         }).catch(e => DBG && e && log(e));
     };
@@ -341,9 +338,9 @@
         addListener(MENU_QUIT, CLICK, close);
     }
 
-    addListener(querySelectors(DLG_ERROR, BUTTON)[0], CLICK, _ => {DLG_ERROR.close();});
+    addListener(querySelectors(DLG_ERROR, "button")[0], CLICK, _ => {DLG_ERROR.close();});
 
-    addListener(querySelectors(DLG_LINK, BUTTON)[0], CLICK, _ => {DLG_LINK.close();});
+    addListener(querySelectors(DLG_LINK, "button")[0], CLICK, _ => {DLG_LINK.close();});
 
     addListener(MENU_COPY, CLICK, copy);
 
