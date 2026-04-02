@@ -1,38 +1,26 @@
 "use strict";
 
-(_ => {
-    //
-    // options
-    //
+(() => {
+    const SETTINGS = {
+        cols: 40,
+        rows: 15,
+        fmt: 80
+    };
 
-    const MAGIC = "🔒"; // encrypted data magic prefix
-
+    const MAGIC       = "🔒";  // encrypted data magic prefix
     const BOOKMARKLET = true;  // exit button
     const DOTS        = true;  // use password inputs
-    const FMT         = true;  // format encrypted data
     const DND         = true;  // handle drag and drop
     const KBD         = true;  // handle ctrl-c and ctrl-s
     const DBG         = false; // log errors
 
-    const SETTINGS = {
-        cols: 40,
-        rows: 30,
-        fmt: 80
-    };
-
-    //
-    // help minifier
-    //
-
     const DOC = document;
     const BODY = DOC.body;
-    const INPUT = `<input size="20" ${DOTS? 'type="password"' : ''} />`;
-    const CLICK = "click";
-    const KEYUP = "keyup";
-    const CANCEL = "cancel";
     const COLUMN = "flex-direction: column;";
 
-    const createElement = (t, c) => {
+    const append = (e, ...cs) => {for (const c of cs) e.appendChild(c); return e;};
+    const remove = (e, ...cs) => {for (const c of cs) e.removeChild(c); return e;};
+    const createElement = (t, c/*, p*/) => {
         const e = DOC.createElement(t);
         if (c) {
             if (c.id   ) e.id = c.id;
@@ -40,19 +28,17 @@
             if (c.style) e.style.cssText += c.style;
             if (c.inner) e.innerHTML = c.inner;
         }
+        // if (p) append(p, e);
         return e;
     };
-    const append = (e, ...cs) => {for (const c of cs) e.appendChild(c); return e;};
-    const remove = (e, ...cs) => {for (const c of cs) e.removeChild(c); return e;};
     const addListener = (e, t, h) => {e.addEventListener(t, h);};
     const removeListener = (e, t, h) => e.removeEventListener(t, h);
     const querySelectors = (e, s) => e.querySelectorAll(s);
     const preventDefault = e => e.preventDefault();
     const log = (...xs) => console.log(...xs);
-    // const length = xs => xs.length;
 
     //
-    // encrypt/decrypt stuff
+    // encrypt/decrypt
     //
 
     const SALT_OFFSET = 0;
@@ -138,13 +124,13 @@
         }
     };
 
-    const STYLE = createElement("style", {inner: "* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog button {width: 100%;}"});
+    const STYLE = createElement("style", {inner: "* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog button {width: 100%;}"}/*, DOC.head*/);
     append(DOC.head, STYLE);
  
-    const TOP = createElement("div", {style: "justify-content: center;"});
+    const TOP = createElement("div", {style: "justify-content: center;"}/*, BODY*/);
     append(BODY, TOP);
 
-    const MAIN = append(createElement("div", {style: `${COLUMN} max-width: 100%;`}),
+    const MAIN = append(createElement("div", {style: `${COLUMN} max-width: 100%;`}/*, MAIN*/),
         createElement("div", {inner: `${["📋", "🔗", "📄", "💾"].reduce(((a, c) => a + "<button>" + c + "</button>"), "")}${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><button>❌</button>`: ''}`}),
         createElement("div", {inner: `<textarea rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></textarea>`})
     );
@@ -154,8 +140,8 @@
         "dialog", {
             inner:
                 `<div style="${COLUMN}">` +
-                    `<p>Enter password:<br />${INPUT}</p>` +
-                    (DOTS? `<p>Confirm password:<br />${INPUT}</p>` : '') +
+                    `<p>Enter password:<br /><input ${DOTS? 'type="password"' : ''} /></p>` +
+                    (DOTS? `<p>Confirm password:<br /><input ${DOTS? 'type="password"' : ''} /></p>` : '') +
                     "<div><button>Ok</button><button>Cancel</button></div>" +
                 "</div>"
         }
@@ -190,10 +176,10 @@
     const [PW_OK, PW_CANCEL] = querySelectors(DLG_PASSWORD, "button");
     const [PW_ENTER, PW_CONFIRM] = querySelectors(DLG_PASSWORD, "input");
 
-    const [LINK] = querySelectors(DLG_LINK, "a");
+    const [BOOKMARK] = querySelectors(DLG_LINK, "a");
 
     const format = (txt, length) => {
-        if (FMT) if (length != 0) {
+        if (length != 0) {
             let ftxt = "";
             for (let b = 0, e = length; b < txt.length; b = e, e += length) {
                 if (b != 0) ftxt += "\n";
@@ -207,11 +193,11 @@
     const get_password = (confirm=true) => {
         return new Promise((resolve, reject) => {
             const clear = () => {
-                removeListener(DLG_PASSWORD, CANCEL, cancel);
-                removeListener(PW_ENTER, KEYUP, keyup);
-                if (DOTS) if (confirm) removeListener(PW_CONFIRM, KEYUP, keyup);
-                removeListener(PW_OK, CLICK, ok);
-                removeListener(PW_CANCEL, CLICK, cancel);
+                removeListener(DLG_PASSWORD, "cancel", cancel);
+                removeListener(PW_ENTER, "keyup", keyup);
+                if (DOTS) if (confirm) removeListener(PW_CONFIRM, "keyup", keyup);
+                removeListener(PW_OK, "click", ok);
+                removeListener(PW_CANCEL, "click", cancel);
                 DLG_PASSWORD.close();
             };
 
@@ -234,14 +220,14 @@
                 if (valid && evt.key === "Enter") ok();
             };
 
-            addListener(DLG_PASSWORD, CANCEL, cancel);
-            addListener(PW_ENTER, KEYUP, keyup);
+            addListener(DLG_PASSWORD, "cancel", cancel);
+            addListener(PW_ENTER, "keyup", keyup);
             if (DOTS) {
-                if (confirm) addListener(PW_CONFIRM, KEYUP, keyup);
+                if (confirm) addListener(PW_CONFIRM, "keyup", keyup);
                 PW_CONFIRM.parentElement.style.display = confirm? "" : "none";
             }
-            addListener(PW_OK, CLICK, ok);
-            addListener(PW_CANCEL, CLICK, cancel);
+            addListener(PW_OK, "click", ok);
+            addListener(PW_CANCEL, "click", cancel);
 
             PW_ENTER.value = "";
             if (DOTS) PW_CONFIRM.value = "";
@@ -285,46 +271,38 @@
     // callbacks
     //
 
-    const copy = () => {
+    const ui_encrypt = h => {
         get_password().then(pw => {
             const b = TEXT.selectionStart, e = TEXT.selectionEnd;
             return encrypt(pw, (b == e) ? TEXT.value : TEXT.value.slice(b, e));
-        }
-        ).then(data64 => {
+        }).then(h);
+    };
+
+    const copy = () => {
+        ui_encrypt(data64 => {
             navigator.clipboard.writeText(format(MAGIC + data64, SETTINGS.fmt));
         }).catch(e => DBG && e && log(e));
     };
 
     const link = () => {
-        get_password().then(pw => {
-            const b = TEXT.selectionStart, e = TEXT.selectionEnd;
-            return encrypt(pw, (b == e) ? TEXT.value : TEXT.value.slice(b, e));
-        }
-        ).then(data64 => {
-            LINK.href = "javascript:" + encodeURIComponent('navigator.clipboard.writeText("' + MAGIC + data64 + '");');
-            // LINK.href = "javascript:" + encodeURIComponent(`navigator.clipboard.writeText("${MAGIC + data64}");`);
+        ui_encrypt(data64 => {
+            BOOKMARK.href = "javascript:" + encodeURIComponent(`navigator.clipboard.writeText("${MAGIC + data64}");`);
             DLG_LINK.showModal();
         }).catch(e => DBG && e && log(e));
     };
 
     const page = () => {
-        get_password().then(pw => {
-            const b = TEXT.selectionStart, e = TEXT.selectionEnd;
-            return encrypt(pw, (b == e) ? TEXT.value : TEXT.value.slice(b, e));
-        }
-        ).then(data64 => {
-            LINK.href = "data:text/plain;charset=utf-8," + encodeURIComponent(MAGIC + data64);
+        ui_encrypt(data64 => {
+            BOOKMARK.href = "data:text/plain;charset=utf-8," + encodeURIComponent(MAGIC + data64);
             DLG_LINK.showModal();
         }).catch(e => DBG && e && log(e));
     };
 
     const save = () => {
-        get_password().then(pw =>
-            encrypt(pw, TEXT.value)
-        ).then(data64 => {
+        ui_encrypt(data64 => {
             const blob = new Blob([format(MAGIC + data64, SETTINGS.fmt)], {type: "text/plain"});
             const url = URL.createObjectURL(blob);
-            const a = createElement("a");
+            const a = createElement("a"/*, undefined, BODY*/);
             a.href = url;
             a.download = "ez-lock.txt";
             append(BODY, a);
@@ -335,22 +313,14 @@
     };
 
     if (BOOKMARKLET) {
-        addListener(MENU_QUIT, CLICK, close);
+        addListener(MENU_QUIT, "click", close);
     }
 
-    addListener(querySelectors(DLG_ERROR, "button")[0], CLICK, _ => {DLG_ERROR.close();});
+    for (const d of [DLG_ERROR, DLG_LINK]) {addListener(querySelectors(d, "button")[0], "click", () => {d.close();});}
 
-    addListener(querySelectors(DLG_LINK, "button")[0], CLICK, _ => {DLG_LINK.close();});
+    for (const [m, h] of [[MENU_COPY, copy], [MENU_LINK, link], [MENU_PAGE, page], [MENU_SAVE, save]]) addListener(m, "click", h);
 
-    addListener(MENU_COPY, CLICK, copy);
-
-    addListener(MENU_LINK, CLICK, link);
-
-    addListener(MENU_PAGE, CLICK, page);
-
-    addListener(MENU_SAVE, CLICK, save);
-
-    addListener(LINK, "click", preventDefault);
+    addListener(BOOKMARK, "click", preventDefault);
 
     addListener(TEXT, "paste", evt => {
         preventDefault(evt);
