@@ -35,11 +35,7 @@
     const KEYUP = "keyup";
     const CANCEL = "cancel";
     const COLUMN = "flex-direction: column;";
-    // const createElement = (t, c) => {
-    //     const e = DOC.createElement(t);
-    //     if (c) e.innerHTML = c;
-    //     return e;
-    // }
+
     const createElement = (t, c) => {
         const e = DOC.createElement(t);
         if (c) {
@@ -133,7 +129,7 @@
         BK.ss.push({s: s, d: s.disabled});
         s.disabled = true;
     }
-
+    // restore host page
     const close = () => {
         remove(DOC.head, STYLE);
         for (const e of [TOP, DLG_PASSWORD, DLG_ERROR, DLG_LINK]) remove(BODY, e);
@@ -148,23 +144,24 @@
 
     const STYLE = createElement("style", {inner: `* {font-family: sans-serif;} dialog {margin-top: 2em;} p {margin: 0;} div {display: flex; gap: 1em;} dialog ${BUTTON} {width: 100%;}`});
     append(DOC.head, STYLE);
-
-    const TOP = createElement(DIV);
-    TOP.style.justifyContent = "center";
+ 
+    const TOP = createElement(DIV, {style: "justify-content: center;"});
     append(BODY, TOP);
 
-    const MAIN = createElement(DIV, {style: `${COLUMN} max-width: 100%;`});
-    append(MAIN, createElement(DIV, {inner: `<${BUTTON}>📋</${BUTTON}><${BUTTON}>🔗</${BUTTON}><${BUTTON}>📄</${BUTTON}><${BUTTON}>💾</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`}));
-    append(MAIN, createElement(DIV, {inner: `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`}));
+    const MAIN = append(createElement(DIV, {style: `${COLUMN} max-width: 100%;`}),
+        createElement(DIV, {inner: `<${BUTTON}>📋</${BUTTON}><${BUTTON}>🔗</${BUTTON}><${BUTTON}>📄</${BUTTON}><${BUTTON}>💾</${BUTTON}>${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`}),
+        // createElement(DIV, {inner: `${["📋", "🔗", "📄", "💾"].reduce((a, c) => a + `<${BUTTON}>` + c + `</${BUTTON}>`)}${BOOKMARKLET ? `<span style="flex-grow: 1;"></span><${BUTTON}>❌</${BUTTON}>`: ''}`}),
+        createElement(DIV, {inner: `<${TEXTAREA} rows="${SETTINGS.rows}" cols="${SETTINGS.cols}" placeholder="Edit/Drop" wrap="off" spellcheck="false"></${TEXTAREA}>`})
+    );
     append(TOP, MAIN);
 
     const DLG_PASSWORD = createElement(
         DIALOG, {
             inner:
                 `<${DIV} style="${COLUMN}">` +
-                `<p>Enter password:<br />${INPUT}</p>` +
-                (DOTS? `<p>Confirm password:<br />${INPUT}</p>` : '') +
-                `<${DIV}><${BUTTON}>Ok</${BUTTON}><${BUTTON}>Cancel</${BUTTON}></${DIV}>` +
+                    `<p>Enter password:<br />${INPUT}</p>` +
+                    (DOTS? `<p>Confirm password:<br />${INPUT}</p>` : '') +
+                    `<${DIV}><${BUTTON}>Ok</${BUTTON}><${BUTTON}>Cancel</${BUTTON}></${DIV}>` +
                 `</${DIV}>`
         }
     );
@@ -173,8 +170,8 @@
         DIALOG, {
             inner:
                 `<${DIV} style="${COLUMN}">` +
-                '<p>Invalid password or<br />corrupted data.</p>' +
-                `<p><${BUTTON}>Close</${BUTTON}></p>` +
+                    '<p>Invalid password or<br />corrupted data.</p>' +
+                    `<p><${BUTTON}>Close</${BUTTON}></p>` +
                 `</${DIV}>`,
             style: "border-color: red;"
         }
@@ -184,9 +181,9 @@
         DIALOG, {
             inner:
                 `<${DIV} style="${COLUMN}">` +
-                '<span>Save data:</span>' +
-                '<a href="/">bookmark</a>' +
-                `<${BUTTON}>Close</${BUTTON}>` +
+                    '<span>Save data:</span>' +
+                    '<a href="/">bookmark</a>' +
+                    `<${BUTTON}>Close</${BUTTON}>` +
                 `</${DIV}>`
         }
     );
@@ -355,9 +352,9 @@
 
     addListener(MENU_PAGE, CLICK, page);
 
-    addListener(LINK, "click", preventDefault);
-
     addListener(MENU_SAVE, CLICK, save);
+
+    addListener(LINK, "click", preventDefault);
 
     addListener(TEXT, "paste", evt => {
         preventDefault(evt);
